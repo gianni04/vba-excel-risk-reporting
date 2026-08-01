@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.Python
+*.so
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+ENV/
+
+# Outils de test / lint / typage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Sortie generee par les exemples (docs/ est commite volontairement)
+output/
+
+# Excel
+~$*.xlsx
+~$*.xlsm
+*.tmp
+
+# Editeurs / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

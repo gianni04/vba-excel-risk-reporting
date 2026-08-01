@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "riskreporting"
+version = "1.0.0"
+description = "Generateur Python de reporting risque middle-office (VaR, ES, TE, beta, drawdown) avec classeur Excel natif, en miroir de modules VBA de production."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Gianni Pilotti" }]
+dependencies = [
+    "numpy==1.26.3",
+    "pandas==3.0.5",
+    "scipy==1.15.3",
+    "matplotlib==3.10.9",
+    "statsmodels==0.14.6",
+    "openpyxl==3.1.5",
+    "xlsxwriter==3.2.9",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
