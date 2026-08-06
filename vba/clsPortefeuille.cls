@@ -1,41 +1,19 @@
 VERSION 1.0 CLASS
 BEGIN
-  MultiUse = -1  'True
+  MultiUse = -1
 END
 Attribute VB_Name = "clsPortefeuille"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-'===============================================================================
-' Classe     : clsPortefeuille
-' Objet      : Encapsulation orientee objet d'un portefeuille : collection de
-'              positions, proprietes Let/Get, methodes d'agregation
-'              (exposition brute/nette, poids, exposition sectorielle,
-'              concentration emetteur). Demontre la maitrise de la POO en VBA
-'              (classe + collection d'objets clsPosition simules par un
-'              tableau de structures internes, VBA n'ayant pas de Type dans
-'              une collection native facilement manipulable ici).
-' Auteur     : Gianni Pilotti
-'
-' Utilisation typique :
-'   Dim p As New clsPortefeuille
-'   p.Nom = "Fonds Actions Europe"
-'   p.AjouterPosition "FR0000131104", "TotalEnergies", "Energie", 1500000, "EUR", "A"
-'   p.AjouterPosition "DE0007236101", "Siemens", "Industrie", 900000, "EUR", "A"
-'   Debug.Print p.ExpositionBrute
-'   Debug.Print p.PoidsPosition("FR0000131104")
-'===============================================================================
 
 Option Explicit
 
-' --- Variables membres privees (encapsulation) ---
 Private m_nom As String
 Private m_devise As String
 Private m_dateValorisation As Date
 
-' Tableaux paralleles representant les positions (evite la dependance a une
-' classe clsPosition separee pour garder le module autonome et lisible).
 Private m_isin() As String
 Private m_libelle() As String
 Private m_secteur() As String
@@ -46,9 +24,6 @@ Private m_nbPositions As Long
 Private Const CAPACITE_INITIALE As Long = 10
 Private m_capacite As Long
 
-'-------------------------------------------------------------------------------
-' Class_Initialize : initialisation de la collection interne de positions.
-'-------------------------------------------------------------------------------
 Private Sub Class_Initialize()
     m_capacite = CAPACITE_INITIALE
     ReDim m_isin(1 To m_capacite)
@@ -62,7 +37,6 @@ Private Sub Class_Initialize()
     m_dateValorisation = Date
 End Sub
 
-' --- Proprietes Let/Get : encapsulation classique VBA ---
 
 Public Property Get Nom() As String
     Nom = m_nom
@@ -95,18 +69,6 @@ Public Property Get NombrePositions() As Long
     NombrePositions = m_nbPositions
 End Property
 
-'===============================================================================
-' AjouterPosition
-' Ajoute une position au portefeuille. Redimensionne automatiquement la
-' capacite interne si necessaire (doublement, amorti O(1)).
-'   isin        : code ISIN de la ligne
-'   libelle     : nom de l'emetteur / instrument
-'   secteur     : secteur GICS/ICB simplifie
-'   exposition  : exposition en devise du portefeuille (peut etre negative
-'                 pour une position courte / instrument de couverture)
-'   devisePosition : devise native de la position
-'   notation    : notation credit simplifiee (ex : "AAA", "A", "BBB", "NR")
-'===============================================================================
 Public Sub AjouterPosition(ByVal isin As String, ByVal libelle As String, ByVal secteur As String, _
     ByVal exposition As Double, Optional ByVal devisePosition As String = "EUR", Optional ByVal notation As String = "NR")
 
@@ -139,16 +101,10 @@ GestionErreur:
     Err.Raise Err.Number, "clsPortefeuille.AjouterPosition", Err.Description
 End Sub
 
-'===============================================================================
-' ViderPositions : reinitialise le portefeuille (supprime toutes les positions).
-'===============================================================================
 Public Sub ViderPositions()
     Class_Initialize
 End Sub
 
-'===============================================================================
-' ExpositionBrute : somme des valeurs absolues des expositions (gross exposure).
-'===============================================================================
 Public Function ExpositionBrute() As Double
     Dim i As Long, s As Double
     s = 0
@@ -158,9 +114,6 @@ Public Function ExpositionBrute() As Double
     ExpositionBrute = s
 End Function
 
-'===============================================================================
-' ExpositionNette : somme algebrique des expositions (net exposure).
-'===============================================================================
 Public Function ExpositionNette() As Double
     Dim i As Long, s As Double
     s = 0
@@ -170,19 +123,10 @@ Public Function ExpositionNette() As Double
     ExpositionNette = s
 End Function
 
-'===============================================================================
-' ValeurTotale : alias de ExpositionNette, utilise comme base de calcul des
-' poids (peut differer si l'on souhaite exclure la tresorerie a l'avenir).
-'===============================================================================
 Public Function ValeurTotale() As Double
     ValeurTotale = ExpositionNette()
 End Function
 
-'===============================================================================
-' PoidsPosition : poids d'une position (identifiee par ISIN) rapporte a la
-' valeur totale nette du portefeuille. Renvoie 0 si l'ISIN est introuvable ou
-' si la valeur totale est nulle (division par zero evitee).
-'===============================================================================
 Public Function PoidsPosition(ByVal isin As String) As Double
     Dim i As Long
     Dim total As Double
@@ -203,9 +147,6 @@ Public Function PoidsPosition(ByVal isin As String) As Double
     PoidsPosition = 0
 End Function
 
-'===============================================================================
-' ExpositionParSecteur : exposition brute agregee pour un secteur donne.
-'===============================================================================
 Public Function ExpositionParSecteur(ByVal secteur As String) As Double
     Dim i As Long, s As Double
     s = 0
@@ -217,9 +158,6 @@ Public Function ExpositionParSecteur(ByVal secteur As String) As Double
     ExpositionParSecteur = s
 End Function
 
-'===============================================================================
-' PoidsSecteur : poids d'un secteur rapporte a l'exposition brute totale.
-'===============================================================================
 Public Function PoidsSecteur(ByVal secteur As String) As Double
     Dim brut As Double
     brut = ExpositionBrute()
@@ -230,10 +168,6 @@ Public Function PoidsSecteur(ByVal secteur As String) As Double
     PoidsSecteur = ExpositionParSecteur(secteur) / brut
 End Function
 
-'===============================================================================
-' ConcentrationEmetteur : plus grande exposition brute individuelle rapportee
-' a l'exposition brute totale (indicateur de concentration mono-emetteur).
-'===============================================================================
 Public Function ConcentrationEmetteur() As Double
     Dim i As Long
     Dim maxExpo As Double
@@ -253,12 +187,6 @@ Public Function ConcentrationEmetteur() As Double
     ConcentrationEmetteur = maxExpo / brut
 End Function
 
-'===============================================================================
-' NombrePositionsSousNotation : compte les positions dont la notation est
-' strictement inferieure au seuil (echelle simplifiee : AAA > AA > A > BBB >
-' BB > B > NR, NR traite comme le plus bas).
-'   notationMinimale : ex "BBB"
-'===============================================================================
 Public Function NombrePositionsSousNotation(ByVal notationMinimale As String) As Long
     Dim i As Long, n As Long
     Dim rangMin As Long
@@ -272,10 +200,6 @@ Public Function NombrePositionsSousNotation(ByVal notationMinimale As String) As
     NombrePositionsSousNotation = n
 End Function
 
-'-------------------------------------------------------------------------------
-' RangNotation : convertit une notation credit simplifiee en rang numerique
-' (plus petit = meilleure qualite de credit).
-'-------------------------------------------------------------------------------
 Private Function RangNotation(ByVal notation As String) As Long
     Select Case UCase$(Trim$(notation))
         Case "AAA": RangNotation = 1
@@ -285,14 +209,10 @@ Private Function RangNotation(ByVal notation As String) As Long
         Case "BB": RangNotation = 5
         Case "B": RangNotation = 6
         Case "CCC": RangNotation = 7
-        Case Else: RangNotation = 8 ' NR ou inconnu : traite comme le plus risque
+        Case Else: RangNotation = 8
     End Select
 End Function
 
-'===============================================================================
-' ListeISIN : renvoie un tableau des ISIN presents dans le portefeuille (utile
-' pour parcourir les positions depuis l'exterieur de la classe).
-'===============================================================================
 Public Function ListeISIN() As String()
     Dim resultat() As String
     Dim i As Long
@@ -311,9 +231,6 @@ Public Function ListeISIN() As String()
     ListeISIN = resultat
 End Function
 
-'===============================================================================
-' ExpositionPosition : exposition d'une position donnee (0 si ISIN introuvable).
-'===============================================================================
 Public Function ExpositionPosition(ByVal isin As String) As Double
     Dim i As Long
     For i = 1 To m_nbPositions

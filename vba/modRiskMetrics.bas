@@ -1,31 +1,7 @@
 Attribute VB_Name = "modRiskMetrics"
-'===============================================================================
-' Module    : modRiskMetrics
-' Objet     : Fonctions Excel definies par l'utilisateur (UDF) pour le calcul
-'             des indicateurs de risque de marche standard utilises en
-'             reporting risque middle-office (VaR, ES, volatilite, TE, beta...).
-' Auteur    : Gianni Pilotti
-' Portee    : Toutes les fonctions sont appelables directement depuis une
-'             feuille de calcul, par exemple :
-'                 =VaRHistorique(B2:B251;0,99)
-' Conventions :
-'   - Les plages d'entree contiennent des RENDEMENTS PERIODIQUES (pas des prix),
-'     sauf mention contraire explicite dans l'en-tete de la fonction.
-'   - En cas d'entree invalide, chaque fonction renvoie une erreur Excel propre
-'     via CVErr(xlErrValue) ou CVErr(xlErrNum) plutot qu'un plantage VBA.
-'   - Application.Volatile n'est utilise que lorsque le resultat depend d'un
-'     etat non capture par les arguments (aucun cas ici : toutes les fonctions
-'     sont pures par rapport a leurs arguments, donc AUCUNE n'est marquee
-'     volatile - ceci est documente explicitement pour chaque fonction).
-'===============================================================================
 
 Option Explicit
 
-'-------------------------------------------------------------------------------
-' RangeToArray
-' Convertit une Range Excel en tableau Double a une dimension (base 1).
-' Ignore silencieusement les cellules vides et non numeriques si bIgnoreBlanks=True.
-'-------------------------------------------------------------------------------
 Private Function RangeToArray(ByVal plage As Range, Optional ByVal bIgnoreBlanks As Boolean = True) As Double()
     Dim cell As Range
     Dim resultat() As Double
@@ -55,11 +31,6 @@ Private Function RangeToArray(ByVal plage As Range, Optional ByVal bIgnoreBlanks
     RangeToArray = resultat
 End Function
 
-'-------------------------------------------------------------------------------
-' QuickSortDouble
-' Tri rapide (in-place) d'un tableau Double, utilise par les fonctions de VaR
-' historique / ES qui necessitent les rendements tries par ordre croissant.
-'-------------------------------------------------------------------------------
 Private Sub QuickSortDouble(ByRef arr() As Double, ByVal gauche As Long, ByVal droite As Long)
     Dim i As Long, j As Long
     Dim pivot As Double, temp As Double
@@ -90,11 +61,6 @@ Private Sub QuickSortDouble(ByRef arr() As Double, ByVal gauche As Long, ByVal d
     If i < droite Then QuickSortDouble arr, i, droite
 End Sub
 
-'-------------------------------------------------------------------------------
-' Moyenne / EcartType : petites fonctions statistiques internes, evitent la
-' dependance a Application.WorksheetFunction pour rester robustes et testables
-' depuis modTests.bas.
-'-------------------------------------------------------------------------------
 Private Function Moyenne(ByRef arr() As Double) As Double
     Dim i As Long, s As Double
     Dim n As Long
@@ -130,11 +96,6 @@ Private Function EcartType(ByRef arr() As Double, Optional ByVal bEchantillon As
     End If
 End Function
 
-'-------------------------------------------------------------------------------
-' PercentileLineaire
-' Percentile par interpolation lineaire (methode "inclusive", coherente avec
-' PERCENTILE.INC d'Excel), sur un tableau NON trie en entree (il est trie ici).
-'-------------------------------------------------------------------------------
 Private Function PercentileLineaire(ByRef arr() As Double, ByVal p As Double) As Double
     Dim n As Long
     Dim triee() As Double
@@ -151,7 +112,7 @@ Private Function PercentileLineaire(ByRef arr() As Double, ByVal p As Double) As
         Exit Function
     End If
 
-    rang = p * (n - 1) ' index 0-based
+    rang = p * (n - 1)
     rangInf = Int(rang)
     rangSup = rangInf + 1
     frac = rang - rangInf
@@ -163,21 +124,10 @@ Private Function PercentileLineaire(ByRef arr() As Double, ByVal p As Double) As
     End If
 End Function
 
-'-------------------------------------------------------------------------------
-' NiveauValide : validation commune du parametre "niveau de confiance".
-'-------------------------------------------------------------------------------
 Private Function NiveauValide(ByVal niveau As Double) As Boolean
     NiveauValide = (niveau > 0 And niveau < 1)
 End Function
 
-'===============================================================================
-' VaRHistorique
-' VaR historique (non parametrique) exprimee en PERTE POSITIVE (ex : 0,023 =
-' perte potentielle de 2,3% du notionnel au niveau de confiance donne).
-'   plage  : Range de rendements periodiques (ex : rendements quotidiens)
-'   niveau : niveau de confiance, ex 0,99 pour VaR 99%
-' Exemple  : =VaRHistorique(B2:B251;0,99)
-'===============================================================================
 Public Function VaRHistorique(ByVal plage As Range, ByVal niveau As Double) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -194,8 +144,6 @@ Public Function VaRHistorique(ByVal plage As Range, ByVal niveau As Double) As V
         Exit Function
     End If
 
-    ' Le quantile de perte au niveau (1 - niveau) de la distribution des
-    ' rendements correspond a la VaR (exprimee en perte positive).
     quantile = PercentileLineaire(rendements, 1 - niveau)
     VaRHistorique = Application.WorksheetFunction.Max(0, -quantile)
     Exit Function
@@ -204,15 +152,6 @@ GestionErreur:
     VaRHistorique = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' VaRParametrique
-' VaR parametrique (gaussienne), avec mise a l'echelle temporelle par racine du
-' temps (hypothese de rendements i.i.d.).
-'   plage   : Range de rendements periodiques
-'   niveau  : niveau de confiance (ex : 0,99)
-'   horizon : horizon en nombre de periodes (ex : 10 jours), doit etre >= 1
-' Exemple   : =VaRParametrique(B2:B251;0,99;10)
-'===============================================================================
 Public Function VaRParametrique(ByVal plage As Range, ByVal niveau As Double, Optional ByVal horizon As Double = 1) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -242,15 +181,6 @@ GestionErreur:
     VaRParametrique = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' VaRCornishFisher
-' VaR parametrique corrigee de l'asymetrie (skewness) et de l'aplatissement
-' (excess kurtosis) via le developpement de Cornish-Fisher, plus fidele que la
-' VaR gaussienne lorsque la distribution des rendements a des queues epaisses.
-'   plage  : Range de rendements periodiques
-'   niveau : niveau de confiance (ex : 0,99)
-' Exemple  : =VaRCornishFisher(B2:B251;0,99)
-'===============================================================================
 Public Function VaRCornishFisher(ByVal plage As Range, ByVal niveau As Double) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -285,11 +215,10 @@ Public Function VaRCornishFisher(ByVal plage As Range, ByVal niveau As Double) A
         s4 = s4 + ((rendements(i) - mu) / sigma) ^ 4
     Next i
     skew = s3 / n
-    kurt = (s4 / n) - 3 ' excess kurtosis
+    kurt = (s4 / n) - 3
 
     z = NormSInvPrecise(niveau)
 
-    ' Expansion de Cornish-Fisher au 2e ordre (skew + kurtosis)
     zCF = z + (z ^ 2 - 1) * skew / 6 _
             + (z ^ 3 - 3 * z) * kurt / 24 _
             - (2 * z ^ 3 - 5 * z) * (skew ^ 2) / 36
@@ -301,14 +230,6 @@ GestionErreur:
     VaRCornishFisher = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' ExpectedShortfall
-' Expected Shortfall (CVaR) historique = moyenne des pertes au-dela du seuil de
-' VaR historique, exprimee en perte positive.
-'   plage  : Range de rendements periodiques
-'   niveau : niveau de confiance (ex : 0,975)
-' Exemple  : =ExpectedShortfall(B2:B251;0,975)
-'===============================================================================
 Public Function ExpectedShortfall(ByVal plage As Range, ByVal niveau As Double) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -331,7 +252,6 @@ Public Function ExpectedShortfall(ByVal plage As Range, ByVal niveau As Double) 
     triee = rendements
     QuickSortDouble triee, LBound(triee), UBound(triee)
 
-    ' Nombre d'observations dans la queue de perte (1 - niveau), au moins 1
     nQueue = Application.WorksheetFunction.RoundUp((1 - niveau) * n, 0)
     If nQueue < 1 Then nQueue = 1
     If nQueue > n Then nQueue = n
@@ -348,13 +268,6 @@ GestionErreur:
     ExpectedShortfall = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' VolatiliteAnnualisee
-' Volatilite annualisee = ecart-type des rendements periodiques * racine(freq).
-'   plage     : Range de rendements periodiques
-'   frequence : nombre de periodes par an (252 quotidien, 52 hebdo, 12 mensuel)
-' Exemple     : =VolatiliteAnnualisee(B2:B251;252)
-'===============================================================================
 Public Function VolatiliteAnnualisee(ByVal plage As Range, Optional ByVal frequence As Double = 252) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -377,15 +290,6 @@ GestionErreur:
     VolatiliteAnnualisee = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' VolatiliteEWMA
-' Volatilite (non annualisee) par moyenne mobile ponderee exponentiellement
-' (methode RiskMetrics). Le poids le plus recent a le plus de poids.
-'   plage  : Range de rendements periodiques, ordonnee du plus ANCIEN au plus
-'            RECENT (convention standard d'une serie chronologique en colonne)
-'   lambda : facteur de decroissance, 0 < lambda < 1 (ex : 0,94 RiskMetrics)
-' Exemple  : =VolatiliteEWMA(B2:B251;0,94)
-'===============================================================================
 Public Function VolatiliteEWMA(ByVal plage As Range, Optional ByVal lambda As Double = 0.94) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -406,11 +310,9 @@ Public Function VolatiliteEWMA(ByVal plage As Range, Optional ByVal lambda As Do
         Exit Function
     End If
 
-    ' rendements(UBound) = observation la plus recente (fin de la plage)
     varEWMA = 0
     poidsCumules = 0
     For i = 0 To n - 1
-        ' i = 0 correspond a l'observation la plus recente
         poids = (1 - lambda) * (lambda ^ i)
         varEWMA = varEWMA + poids * (rendements(UBound(rendements) - i) ^ 2)
         poidsCumules = poidsCumules + poids
@@ -425,14 +327,6 @@ GestionErreur:
     VolatiliteEWMA = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' TrackingError
-' Tracking error = ecart-type annualise des rendements actifs (fonds - bench).
-'   plageFonds : Range de rendements periodiques du portefeuille
-'   plageBench : Range de rendements periodiques du benchmark (meme taille)
-'   frequence  : periodes par an pour l'annualisation (defaut 252)
-' Exemple      : =TrackingError(B2:B251;C2:C251;252)
-'===============================================================================
 Public Function TrackingError(ByVal plageFonds As Range, ByVal plageBench As Range, Optional ByVal frequence As Double = 252) As Variant
     On Error GoTo GestionErreur
     Dim fonds() As Double, bench() As Double
@@ -465,12 +359,6 @@ GestionErreur:
     TrackingError = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' BetaPortefeuille
-' Beta = Covariance(fonds, bench) / Variance(bench).
-'   plageFonds, plageBench : Ranges de rendements periodiques, meme taille
-' Exemple : =BetaPortefeuille(B2:B251;C2:C251)
-'===============================================================================
 Public Function BetaPortefeuille(ByVal plageFonds As Range, ByVal plageBench As Range) As Variant
     On Error GoTo GestionErreur
     Dim fonds() As Double, bench() As Double
@@ -509,15 +397,6 @@ GestionErreur:
     BetaPortefeuille = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' RatioSharpe
-' Ratio de Sharpe annualise = (rendement moyen annualise - taux sans risque) /
-'                              volatilite annualisee.
-'   plage        : Range de rendements periodiques du portefeuille
-'   tauxSansRisque : taux sans risque ANNUEL (ex : 0,03 pour 3%)
-'   frequence    : periodes par an (defaut 252)
-' Exemple : =RatioSharpe(B2:B251;0,03;252)
-'===============================================================================
 Public Function RatioSharpe(ByVal plage As Range, Optional ByVal tauxSansRisque As Double = 0, Optional ByVal frequence As Double = 252) As Variant
     On Error GoTo GestionErreur
     Dim rendements() As Double
@@ -553,13 +432,6 @@ GestionErreur:
     RatioSharpe = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' RatioInformation
-' Ratio d'information = rendement actif annualise moyen / tracking error.
-'   plageFonds, plageBench : Ranges de rendements periodiques, meme taille
-'   frequence : periodes par an (defaut 252)
-' Exemple : =RatioInformation(B2:B251;C2:C251;252)
-'===============================================================================
 Public Function RatioInformation(ByVal plageFonds As Range, ByVal plageBench As Range, Optional ByVal frequence As Double = 252) As Variant
     On Error GoTo GestionErreur
     Dim fonds() As Double, bench() As Double
@@ -601,14 +473,6 @@ GestionErreur:
     RatioInformation = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' MaxDrawdown
-' Max Drawdown = plus forte baisse pic-a-creux d'une serie de VALEURS
-' LIQUIDATIVES (niveaux, pas rendements), exprime en valeur NEGATIVE ou nulle
-' (ex : -0,18 = baisse maximale de 18% depuis un plus haut).
-'   plage : Range de niveaux de VL (prix), ordonnee chronologiquement
-' Exemple : =MaxDrawdown(B2:B251)
-'===============================================================================
 Public Function MaxDrawdown(ByVal plage As Range) As Variant
     On Error GoTo GestionErreur
     Dim niveaux() As Double
@@ -640,14 +504,6 @@ GestionErreur:
     MaxDrawdown = CVErr(xlErrValue)
 End Function
 
-'===============================================================================
-' NormSDistPrecise
-' Fonction de repartition de la loi normale centree reduite N(0,1), calculee
-' par une approximation de haute precision (Zelen & Severo, erreur < 7.5e-8),
-' independante de Application.WorksheetFunction.NormSDist pour rester portable.
-'   x : quantile
-' Exemple : =NormSDistPrecise(1,96)  -> environ 0,975
-'===============================================================================
 Public Function NormSDistPrecise(ByVal x As Double) As Double
     Dim t As Double, y As Double
     Dim b1 As Double, b2 As Double, b3 As Double, b4 As Double, b5 As Double, p As Double, c As Double
@@ -659,7 +515,7 @@ Public Function NormSDistPrecise(ByVal x As Double) As Double
     b3 = 1.781477937
     b4 = -1.821255978
     b5 = 1.330274429
-    c = 0.39894228 ' 1 / sqrt(2*pi)
+    c = 0.39894228
 
     absX = Abs(x)
     t = 1 / (1 + p * absX)
@@ -672,17 +528,7 @@ Public Function NormSDistPrecise(ByVal x As Double) As Double
     End If
 End Function
 
-'===============================================================================
-' NormSInvPrecise
-' Inverse de la fonction de repartition de la loi normale centree reduite,
-' approximation rationnelle de Peter Acklam (erreur relative < 1.15e-9).
-' Utilisee par les fonctions de VaR parametrique / Cornish-Fisher et par
-' modOptions.VolImplicite.
-'   p : probabilite, 0 < p < 1
-' Exemple : =NormSInvPrecise(0,99) -> environ 2,3263
-'===============================================================================
 Public Function NormSInvPrecise(ByVal p As Double) As Double
-    ' Coefficients de l'approximation d'Acklam
     Dim a1 As Double, a2 As Double, a3 As Double, a4 As Double, a5 As Double, a6 As Double
     Dim b1 As Double, b2 As Double, b3 As Double, b4 As Double, b5 As Double
     Dim c1 As Double, c2 As Double, c3 As Double, c4 As Double, c5 As Double, c6 As Double
@@ -692,8 +538,6 @@ Public Function NormSInvPrecise(ByVal p As Double) As Double
     Dim resultat As Double
 
     If p <= 0 Or p >= 1 Then
-        ' Hors domaine : on renvoie une valeur sentinelle plutot que de planter,
-        ' les fonctions appelantes valident deja p en amont.
         NormSInvPrecise = 0
         Exit Function
     End If
@@ -728,7 +572,6 @@ Public Function NormSInvPrecise(ByVal p As Double) As Double
                     ((((d1 * q + d2) * q + d3) * q + d4) * q + 1)
     End If
 
-    ' Un pas de raffinement de Halley ameliore encore la precision.
     Dim e As Double, u As Double
     e = 0.5 * WorksheetFunctionErfc(-resultat / Sqr(2)) - p
     u = e * Sqr(2 * 3.14159265358979) * Exp(resultat * resultat / 2)
@@ -737,12 +580,6 @@ Public Function NormSInvPrecise(ByVal p As Double) As Double
     NormSInvPrecise = resultat
 End Function
 
-'-------------------------------------------------------------------------------
-' WorksheetFunctionErfc
-' Fonction d'erreur complementaire erfc(x), utilisee uniquement pour le pas de
-' raffinement de Halley dans NormSInvPrecise. Approximation d'Abramowitz &
-' Stegun 7.1.26 (erreur max ~1.5e-7), sans dependance externe.
-'-------------------------------------------------------------------------------
 Private Function WorksheetFunctionErfc(ByVal x As Double) As Double
     Dim t As Double, y As Double
     Dim signeX As Integer

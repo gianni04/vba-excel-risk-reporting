@@ -1,11 +1,4 @@
-"""
-conftest.py
-===========
-
-Fixtures partagees : jeu de donnees synthetique complet, et classeur genere
-une seule fois par session de test (couteux a construire) pour les tests de
-tests/test_workbook.py.
-"""
+"""Fixtures partagees : jeu de donnees synthetique et classeur genere une seule fois par session de test."""
 
 from __future__ import annotations
 

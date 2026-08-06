@@ -1,16 +1,4 @@
-"""
-02_python_vs_vba.py
-====================
-
-Tableau de validation croisee Python <-> VBA/Excel : pour chaque indicateur,
-calcule la valeur Python (riskreporting.metrics) et affiche la formule
-Excel/VBA equivalente, avec les valeurs de reference pretes a recopier dans
-vba/modTests.bas. Genere aussi les deux graphiques PNG utilises dans le
-README (docs/img/).
-
-Usage :
-    python examples/02_python_vs_vba.py
-"""
+"""Tableau de validation croisee Python <-> VBA/Excel pour chaque indicateur, avec les valeurs de reference pour vba/modTests.bas."""
 
 from __future__ import annotations
 
@@ -162,9 +150,6 @@ def main() -> None:
     ligne_validation("BSGamma", gamma, "=BSGamma(100;100;1;0,05;0;0,2)", f"{gamma:.6f}")
     ligne_validation("BSVega (convention /100)", vega, "=BSVega(100;100;1;0,05;0;0,2)", f"{vega:.6f}")
 
-    # ------------------------------------------------------------------
-    # Graphique 1 : courbe de VL avec zones de drawdown
-    # ------------------------------------------------------------------
     DOSSIER_IMG.mkdir(parents=True, exist_ok=True)
 
     drawdowns = metrics.drawdown_series(historique["vl_fonds"])
@@ -192,9 +177,6 @@ def main() -> None:
     plt.close(fig)
     print(f"\nGraphique VL + drawdown ecrit : {chemin_vl}")
 
-    # ------------------------------------------------------------------
-    # Graphique 2 : contribution au risque par secteur
-    # ------------------------------------------------------------------
     expo_par_secteur = positions.groupby("secteur")["exposition_eur"].apply(lambda s: s.abs().sum())
     expo_par_secteur = expo_par_secteur.sort_values(ascending=True)
     contribution_pct = expo_par_secteur / expo_par_secteur.sum() * 100

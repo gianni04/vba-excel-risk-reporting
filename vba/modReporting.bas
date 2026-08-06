@@ -1,30 +1,7 @@
 Attribute VB_Name = "modReporting"
-'===============================================================================
-' Module    : modReporting
-' Objet     : Generation du reporting risque quotidien : construction de la
-'             feuille de synthese, mise en forme conditionnelle par code
-'             (feux tricolores sur les depassements de limites), creation de
-'             graphiques via ChartObjects, export PDF, et preparation
-'             (JAMAIS envoi) d'un brouillon Outlook.
-' Auteur    : Gianni Pilotti
-'
-' SECURITE  : EnvoyerBrouillonOutlook cree systematiquement le message via
-'             MailItem.Display et NE CONTIENT AUCUN APPEL A .Send. Ceci est
-'             une decision deliberee : aucune automatisation de ce classeur ne
-'             doit pouvoir envoyer un email a l'insu de l'utilisateur.
-'===============================================================================
 
 Option Explicit
 
-'===============================================================================
-' ConstruireFeuilleSynthese
-' Construit (ou reinitialise) la feuille de synthese du reporting risque :
-' titre, date de valorisation, tableau des indicateurs cles avec mise en forme
-' conditionnelle par code sur les statuts de limites.
-'   feuilleSynthese : Worksheet cible (videe puis reconstruite)
-'   nomPortefeuille : nom affiche en titre
-'   dateValorisation: date du reporting
-'===============================================================================
 Public Sub ConstruireFeuilleSynthese(ByVal feuilleSynthese As Worksheet, ByVal nomPortefeuille As String, ByVal dateValorisation As Date)
     On Error GoTo GestionErreur
 
@@ -41,7 +18,6 @@ Public Sub ConstruireFeuilleSynthese(ByVal feuilleSynthese As Worksheet, ByVal n
     feuilleSynthese.Range("B2").Value = dateValorisation
     feuilleSynthese.Range("B2").NumberFormat = "dd/mm/yyyy"
 
-    ' En-tetes du tableau d'indicateurs (ligne 4)
     Dim entetes As Variant
     entetes = Array("Indicateur", "Valeur", "Limite", "Utilisation", "Statut")
 
@@ -64,15 +40,6 @@ GestionErreur:
     Err.Raise Err.Number, "modReporting.ConstruireFeuilleSynthese", Err.Description
 End Sub
 
-'===============================================================================
-' AjouterLigneIndicateur
-' Ajoute une ligne d'indicateur dans le tableau de synthese (a partir de la
-' ligne 5) et applique la mise en forme conditionnelle "feux tricolores" sur
-' la cellule de statut.
-'   feuilleSynthese : Worksheet cible
-'   ligne           : numero de ligne (>= 5)
-'   libelle, valeur, limite, utilisation, statut : contenu de la ligne
-'===============================================================================
 Public Sub AjouterLigneIndicateur(ByVal feuilleSynthese As Worksheet, ByVal ligne As Long, ByVal libelle As String, _
     ByVal valeur As Double, ByVal limite As Double, ByVal utilisation As Double, ByVal statut As String)
 
@@ -108,33 +75,20 @@ GestionErreur:
     Err.Raise Err.Number, "modReporting.AjouterLigneIndicateur", Err.Description
 End Sub
 
-'===============================================================================
-' AppliquerFeuxTricolores
-' Applique une mise en forme conditionnelle native Excel (3 regles) sur une
-' plage d'utilisation de limite (valeurs en %) : vert si < seuilAlerte, orange
-' si entre seuilAlerte et 100%, rouge si >= 100%. Alternative "par formule"
-' aux couleurs fixees en dur par AjouterLigneIndicateur, utile si les valeurs
-' de la plage peuvent changer dynamiquement (recalcul de formules).
-'   plage       : plage de cellules contenant des utilisations (0 a >1)
-'   seuilAlerte : seuil d'alerte, ex 0,9
-'===============================================================================
 Public Sub AppliquerFeuxTricolores(ByVal plage As Range, Optional ByVal seuilAlerte As Double = 0.9)
     On Error GoTo GestionErreur
     Dim fc As FormatCondition
 
     plage.FormatConditions.Delete
 
-    ' Regle 1 : rouge si >= 100% (depassement)
     Set fc = plage.FormatConditions.Add(Type:=xlCellValue, Operator:=xlGreaterEqual, Formula1:="1")
     fc.Interior.Color = RGB(255, 199, 206)
     fc.Font.Color = RGB(156, 0, 6)
 
-    ' Regle 2 : orange si >= seuilAlerte et < 100%
     Set fc = plage.FormatConditions.Add(Type:=xlCellValue, Operator:=xlBetween, Formula1:=CStr(seuilAlerte), Formula2:="1")
     fc.Interior.Color = RGB(255, 235, 156)
     fc.Font.Color = RGB(156, 87, 0)
 
-    ' Regle 3 : vert si < seuilAlerte
     Set fc = plage.FormatConditions.Add(Type:=xlCellValue, Operator:=xlLess, Formula1:=CStr(seuilAlerte))
     fc.Interior.Color = RGB(198, 239, 206)
     fc.Font.Color = RGB(0, 97, 0)
@@ -145,16 +99,6 @@ GestionErreur:
     Err.Raise Err.Number, "modReporting.AppliquerFeuxTricolores", Err.Description
 End Sub
 
-'===============================================================================
-' CreerGraphiqueVL
-' Cree (ou remplace) un graphique en courbe de l'evolution de la valeur
-' liquidative (VL) du fonds vs benchmark, via ChartObjects.
-'   feuilleCible : Worksheet ou inserer le graphique
-'   plageDates   : Range des dates (axe X)
-'   plageVLFonds : Range des VL du fonds (serie 1)
-'   plageVLBench : Range des VL du benchmark (serie 2, optionnelle)
-'   nomGraphique : nom du ChartObject (pour pouvoir le retrouver/remplacer)
-'===============================================================================
 Public Sub CreerGraphiqueVL(ByVal feuilleCible As Worksheet, ByVal plageDates As Range, ByVal plageVLFonds As Range, _
     Optional ByVal plageVLBench As Range = Nothing, Optional ByVal nomGraphique As String = "GraphiqueVL")
 
@@ -194,14 +138,6 @@ GestionErreur:
     Err.Raise Err.Number, "modReporting.CreerGraphiqueVL", Err.Description
 End Sub
 
-'===============================================================================
-' CreerGraphiqueContributionRisque
-' Cree un graphique en barres de contribution au risque par ligne / secteur.
-'   feuilleCible  : Worksheet ou inserer le graphique
-'   plageLibelles : Range des libelles (axe des categories)
-'   plageValeurs  : Range des contributions au risque (axe des valeurs)
-'   nomGraphique  : nom du ChartObject
-'===============================================================================
 Public Sub CreerGraphiqueContributionRisque(ByVal feuilleCible As Worksheet, ByVal plageLibelles As Range, ByVal plageValeurs As Range, _
     Optional ByVal nomGraphique As String = "GraphiqueContribRisque")
 
@@ -234,14 +170,6 @@ Private Sub SupprimerGraphiqueSiExiste(ByVal feuilleCible As Worksheet, ByVal no
     On Error GoTo 0
 End Sub
 
-'===============================================================================
-' ExporterEnPDF
-' Exporte une feuille (ou tout le classeur) en PDF via ExportAsFixedFormat.
-'   classeurCible : Workbook a exporter
-'   cheminSortie  : chemin complet du fichier PDF de destination
-'   feuilleUnique : Worksheet a exporter seule (Nothing = tout le classeur)
-' Renvoie True si l'export a reussi.
-'===============================================================================
 Public Function ExporterEnPDF(ByVal classeurCible As Workbook, ByVal cheminSortie As String, Optional ByVal feuilleUnique As Worksheet = Nothing) As Boolean
     On Error GoTo GestionErreur
 
@@ -260,28 +188,13 @@ GestionErreur:
     ExporterEnPDF = False
 End Function
 
-'===============================================================================
-' EnvoyerBrouillonOutlook
-' Prepare un email de reporting via Outlook et l'affiche a l'utilisateur pour
-' verification et envoi MANUEL. N'appelle JAMAIS MailItem.Send : la routine
-' s'arrete systematiquement a .Display, conformement a la politique de
-' securite du classeur (aucun envoi automatique sans validation humaine).
-'   destinataires : liste d'adresses separees par ";"
-'   objet         : objet de l'email
-'   corpsHTML     : corps du message au format HTML
-'   cheminPieceJointe : chemin d'un fichier a joindre (ex : le PDF exporte),
-'                       optionnel ("" si aucune piece jointe)
-' Renvoie True si le brouillon a ete cree et affiche avec succes.
-'===============================================================================
 Public Function EnvoyerBrouillonOutlook(ByVal destinataires As String, ByVal objet As String, ByVal corpsHTML As String, Optional ByVal cheminPieceJointe As String = "") As Boolean
     On Error GoTo GestionErreur
     Dim applicationOutlook As Object
     Dim messageMail As Object
 
-    ' Late binding (CreateObject) : evite d'exiger une reference au type
-    ' library Outlook si le classeur est ouvert sur un poste sans Outlook.
     Set applicationOutlook = CreateObject("Outlook.Application")
-    Set messageMail = applicationOutlook.CreateItem(0) ' 0 = olMailItem
+    Set messageMail = applicationOutlook.CreateItem(0)
 
     With messageMail
         .To = destinataires
@@ -294,8 +207,6 @@ Public Function EnvoyerBrouillonOutlook(ByVal destinataires As String, ByVal obj
             End If
         End If
 
-        ' IMPORTANT : .Display ouvre le brouillon pour relecture humaine.
-        ' .Send N'EST JAMAIS APPELE ICI - envoi manuel obligatoire.
         .Display
     End With
 
@@ -303,17 +214,9 @@ Public Function EnvoyerBrouillonOutlook(ByVal destinataires As String, ByVal obj
     Exit Function
 
 GestionErreur:
-    ' Cas frequent : Outlook non installe sur le poste - on echoue proprement
-    ' sans planter le reste du reporting.
     EnvoyerBrouillonOutlook = False
 End Function
 
-'===============================================================================
-' GenererCorpsEmailReporting
-' Construit un corps d'email HTML simple resumant le reporting (nombre de
-' depassements, date, lien vers le fichier). Fonction pure, facilement
-' testable, separee de EnvoyerBrouillonOutlook.
-'===============================================================================
 Public Function GenererCorpsEmailReporting(ByVal nomPortefeuille As String, ByVal dateValorisation As Date, ByVal nDepassements As Long) As String
     Dim corps As String
 

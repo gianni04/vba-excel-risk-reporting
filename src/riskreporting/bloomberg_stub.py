@@ -1,31 +1,4 @@
-"""
-bloomberg_stub.py
-==================
-
-Simulateur local (100% offline) de l'API Bloomberg Excel / ``blpapi``, alimente
-par des donnees synthetiques deterministes. Objectif : permettre de developper
-et de tester la logique du reporting (feuille Positions, controles de limites,
-formules de synthese) SANS terminal Bloomberg ni connexion reseau, tout en
-documentant precisement la structure des champs Bloomberg reellement utilises
-par le classeur VBA (``vba/modBloomberg.bas``).
-
-Champs Bloomberg documentes (mnemoniques reels) :
-    PX_LAST           : dernier cours de cloture ou cours courant
-    VOLATILITY_90D     : volatilite historique 90 jours (%, annualisee)
-    CRNCY              : devise de cotation de l'instrument (ISO 4217)
-    DUR_ADJ_MID        : duration modifiee (obligations), mid-market
-    CUR_MKT_CAP        : capitalisation boursiere courante
-    NAME               : nom court de l'emetteur / instrument
-    GICS_SECTOR_NAME   : secteur GICS de l'emetteur
-    RSK_BB_ISSUER_RATING : notation credit composite Bloomberg
-
-Ce module n'appelle JAMAIS de service reseau : ``bdp``/``bdh``/``bds`` lisent
-uniquement un jeu de donnees en memoire, genere par ``data.py`` ou fourni par
-l'appelant. La signature des fonctions imite volontairement celle des
-wrappers ``xbbg``/``blpapi`` les plus repandus pour que le code de reporting
-soit trivial a re-brancher sur une vraie session Bloomberg (remplacer
-l'import de ce module par ``import xbbg`` par exemple).
-"""
+"""Simulateur local (100% offline) de l'API Bloomberg Excel / blpapi, alimente par des donnees synthetiques deterministes."""
 
 from __future__ import annotations
 
@@ -49,12 +22,7 @@ class BloombergIndisponibleError(RuntimeError):
 
 
 def _generer_reference_marche(tickers: list[str], graine: int = 20260101) -> pd.DataFrame:
-    """
-    Construit un petit referentiel de marche synthetique pour une liste de
-    tickers, avec des valeurs plausibles pour chaque champ documente.
-    Deterministe (meme graine -> memes valeurs) pour la reproductibilite des
-    tests.
-    """
+    """Construit un petit referentiel de marche synthetique pour une liste de tickers, avec des valeurs plausibles pour chaque champ documente. Deterministe (meme graine -> memes valeurs) pour la reproductibilite des tests."""
     rng = np.random.default_rng(abs(hash(tuple(tickers))) % (2**32) if tickers else graine)
     n = len(tickers)
 
@@ -90,25 +58,7 @@ def _generer_reference_marche(tickers: list[str], graine: int = 20260101) -> pd.
 
 
 def bdp(tickers: str | list[str], champs: str | list[str], graine: int = 20260101) -> pd.DataFrame:
-    """
-    Simule ``BDP`` (Bloomberg Data Point) : donnee statique "point in time"
-    pour une liste de tickers et de champs.
-
-    Parameters
-    ----------
-    tickers : identifiant(s) Bloomberg, ex "AAPL US Equity" ou une liste.
-    champs  : mnemonique(s) de champ Bloomberg (doivent figurer dans
-              ``CHAMPS_DOCUMENTES``), ex "PX_LAST" ou une liste.
-    graine  : graine du generateur, pour reproductibilite.
-
-    Returns
-    -------
-    DataFrame indexe par ticker, une colonne par champ demande.
-
-    Raises
-    ------
-    BloombergIndisponibleError si un champ demande n'est pas documente/simule.
-    """
+    """Simule ``BDP`` (Bloomberg Data Point) : donnee statique "point in time" pour une liste de tickers et de champs."""
     tickers_liste = [tickers] if isinstance(tickers, str) else list(tickers)
     champs_liste = [champs] if isinstance(champs, str) else list(champs)
 
@@ -130,15 +80,7 @@ def bdh(
     date_fin: str,
     graine: int = 20260101,
 ) -> pd.DataFrame:
-    """
-    Simule ``BDH`` (Bloomberg Data History) : serie temporelle d'un champ pour
-    un ou plusieurs tickers, entre deux dates (jours ouvres uniquement).
-
-    Returns
-    -------
-    DataFrame indexe par date, colonnes en MultiIndex (ticker, champ) si
-    plusieurs tickers/champs sont demandes, sinon colonnes simples.
-    """
+    """Simule ``BDH`` (Bloomberg Data History) : serie temporelle d'un champ pour un ou plusieurs tickers, entre deux dates (jours ouvres uniquement)."""
     tickers_liste = [tickers] if isinstance(tickers, str) else list(tickers)
     champs_liste = [champs] if isinstance(champs, str) else list(champs)
 
@@ -168,7 +110,6 @@ def bdh(
             elif champ == "VOLATILITY_90D":
                 serie = vol_glissante.to_numpy()
             else:
-                # Champs statiques (CRNCY, notation...) repetes sur la periode.
                 valeur_statique = bdp(ticker, champ, graine=graine).iloc[0, 0]
                 serie = np.repeat(valeur_statique, len(dates))
             colonnes[(ticker, champ)] = serie
@@ -185,14 +126,7 @@ def bdh(
 
 
 def bds(ticker: str, champ: str, graine: int = 20260101, n_lignes: int = 10) -> pd.DataFrame:
-    """
-    Simule ``BDS`` (Bloomberg Data Set) : donnee "bulk" en liste, par exemple
-    la composition ponderee d'un indice (champ ``INDX_MWEIGHT``).
-
-    Ce stub supporte specifiquement le champ ``INDX_MWEIGHT`` (composition
-    d'indice pondere) a titre d'exemple ; d'autres champs bulk peuvent etre
-    ajoutes en suivant le meme schema.
-    """
+    """Simule ``BDS`` (Bloomberg Data Set) : donnee "bulk" en liste, par exemple la composition ponderee d'un indice (champ ``INDX_MWEIGHT``)."""
     if champ != "INDX_MWEIGHT":
         raise BloombergIndisponibleError(
             f"Champ BDS non simule par ce stub local : {champ}. "

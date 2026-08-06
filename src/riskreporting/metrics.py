@@ -1,18 +1,4 @@
-"""
-metrics.py
-==========
-
-Indicateurs de risque de marche standard, implementes cote Python en miroir
-exact des UDF VBA de ``vba/modRiskMetrics.bas`` et ``vba/modOptions.bas``.
-Sert de reference de validation croisee : chaque fonction ici doit produire
-la meme valeur (aux erreurs d'arrondi pres) que l'UDF Excel correspondante
-appliquee au meme jeu de donnees - voir ``examples/02_python_vs_vba.py``.
-
-Conventions (identiques au VBA) :
-    - Les series de rendements sont des rendements PERIODIQUES (pas des prix).
-    - La VaR et l'Expected Shortfall sont exprimees en PERTE POSITIVE.
-    - Le Max Drawdown est exprime en valeur NEGATIVE ou nulle.
-"""
+"""Indicateurs de risque de marche, en miroir exact des UDF VBA de vba/modRiskMetrics.bas et vba/modOptions.bas."""
 
 from __future__ import annotations
 
@@ -28,11 +14,7 @@ def _as_array(rendements: pd.Series | np.ndarray) -> np.ndarray:
 
 
 def var_historique(rendements: pd.Series | np.ndarray, niveau: float = 0.99) -> float:
-    """
-    VaR historique (non parametrique), miroir de modRiskMetrics.VaRHistorique.
-    Utilise le percentile lineaire "inclusif" (equivalent PERCENTILE.INC /
-    numpy.percentile methode par defaut "linear").
-    """
+    """VaR historique (non parametrique), miroir de modRiskMetrics.VaRHistorique. Utilise le percentile lineaire "inclusif" (equivalent PERCENTILE.INC / numpy.percentile methode par defaut "linear")."""
     if not (0 < niveau < 1):
         raise ValueError("niveau doit etre strictement compris entre 0 et 1")
 
@@ -77,7 +59,7 @@ def var_cornish_fisher(rendements: pd.Series | np.ndarray, niveau: float = 0.99)
 
     z_scores = (arr - mu) / sigma
     skew = np.mean(z_scores**3)
-    kurt = np.mean(z_scores**4) - 3  # excess kurtosis
+    kurt = np.mean(z_scores**4) - 3
 
     z = stats.norm.ppf(niveau)
     z_cf = (
@@ -119,11 +101,7 @@ def volatilite_annualisee(rendements: pd.Series | np.ndarray, frequence: float =
 
 
 def volatilite_ewma(rendements: pd.Series | np.ndarray, lam: float = 0.94) -> float:
-    """
-    Volatilite EWMA (RiskMetrics), miroir de modRiskMetrics.VolatiliteEWMA.
-    La derniere valeur de la serie est traitee comme l'observation la plus
-    recente (poids maximal).
-    """
+    """Volatilite EWMA (RiskMetrics), miroir de modRiskMetrics.VolatiliteEWMA. La derniere valeur de la serie est traitee comme l'observation la plus recente (poids maximal)."""
     if not (0 < lam < 1):
         raise ValueError("lambda doit etre strictement compris entre 0 et 1")
 
@@ -132,7 +110,6 @@ def volatilite_ewma(rendements: pd.Series | np.ndarray, lam: float = 0.94) -> fl
     if n < 2:
         raise ValueError("au moins 2 observations sont necessaires")
 
-    # i=0 -> observation la plus recente (derniere de la serie)
     i = np.arange(n)
     poids = (1 - lam) * (lam**i)
     rendements_recents_en_premier = arr[::-1]
@@ -218,16 +195,12 @@ def ratio_information(
 
 
 def max_drawdown(niveaux: pd.Series | np.ndarray) -> float:
-    """
-    Max Drawdown (valeur negative ou nulle), miroir de modRiskMetrics.MaxDrawdown.
-    ``niveaux`` est une serie de VALEURS (VL), pas de rendements.
-    """
+    """Max Drawdown (valeur negative ou nulle), miroir de modRiskMetrics.MaxDrawdown. ``niveaux`` est une serie de VALEURS (VL), pas de rendements."""
     arr = _as_array(niveaux)
     if arr.size < 2:
         raise ValueError("au moins 2 observations sont necessaires")
 
     plus_haut_cumule = np.maximum.accumulate(arr)
-    # Evite une division par zero si une VL nulle ou negative apparaissait.
     drawdowns = np.where(
         plus_haut_cumule > 0, (arr - plus_haut_cumule) / plus_haut_cumule, 0.0
     )
@@ -236,10 +209,7 @@ def max_drawdown(niveaux: pd.Series | np.ndarray) -> float:
 
 
 def drawdown_series(niveaux: pd.Series) -> pd.Series:
-    """
-    Serie complete de drawdown (pas seulement le maximum), utile pour le
-    graphique "VL + drawdowns". Renvoie une Series alignee sur l'index d'entree.
-    """
+    """Serie complete de drawdown (pas seulement le maximum), utile pour le graphique "VL + drawdowns". Renvoie une Series alignee sur l'index d'entree."""
     arr = _as_array(niveaux)
     plus_haut_cumule = np.maximum.accumulate(arr)
     drawdowns = np.where(
@@ -253,12 +223,7 @@ def drawdown_series(niveaux: pd.Series) -> pd.Series:
 def contribution_au_risque(
     expositions: pd.Series | np.ndarray, volatilites: pd.Series | np.ndarray
 ) -> np.ndarray:
-    """
-    Contribution au risque simplifiee par ligne, sous hypothese de correlation
-    unitaire entre lignes (approximation prudente et lisible pour un
-    graphique de reporting) : contribution_i = |exposition_i| * volatilite_i,
-    normalisee pour sommer a 1.
-    """
+    """Contribution au risque simplifiee par ligne, sous hypothese de correlation unitaire entre lignes (approximation prudente et lisible pour un graphique de reporting) : contribution_i = |exposition_i| * volatilite_i, normalisee pour sommer a 1."""
     expo = np.asarray(expositions, dtype=float)
     vol = np.asarray(volatilites, dtype=float)
     contrib_brute = np.abs(expo) * vol
@@ -266,13 +231,6 @@ def contribution_au_risque(
     if total == 0:
         return np.zeros_like(contrib_brute)
     return contrib_brute / total
-
-
-# ---------------------------------------------------------------------------
-# Pricing d'options (miroir de vba/modOptions.bas), utilise pour la
-# validation croisee des Grecques et pour documenter les formules dans le
-# classeur (feuille Documentation).
-# ---------------------------------------------------------------------------
 
 
 def black_scholes(

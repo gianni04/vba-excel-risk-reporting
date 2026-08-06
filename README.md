@@ -6,11 +6,9 @@
 
 ---
 
-## Pourquoi ce projet
+## Ce que fait le projet
 
-Le middle-office risque d'une société de gestion tourne, au quotidien, sous **Excel + VBA + Bloomberg**. Avant le premier reporting du matin, quelqu'un doit calculer une VaR, contrôler des limites d'exposition, mettre à jour un classeur avec des formules qui ne cassent pas, et parfois retrouver une volatilité implicite à la main parce que le pricer ne répond plus. Ce dépôt est cette boîte à outils : des UDF VBA de qualité production (gestion d'erreur propre, `Option Explicit`, aucune dépendance cachée), un classeur de reporting généré avec des **formules Excel natives vivantes** (pas des valeurs figées), et un moteur Python qui sert à la fois à produire l'exemple et à valider chaque indicateur en double aveugle contre le VBA.
-
-Peu de candidats montrent du VBA propre sur un dépôt public. C'est volontairement le morceau le plus différenciant de ce portfolio pour un poste exigeant "maîtrise de VBA", "très bonne maîtrise des formules Excel" et "connaissance de Bloomberg".
+Le middle-office risque d'une société de gestion tourne, au quotidien, sous Excel + VBA + Bloomberg : calculer une VaR, contrôler des limites d'exposition, mettre à jour un classeur avec des formules qui ne cassent pas, retrouver une volatilité implicite à la main quand le pricer ne répond plus. Ce dépôt fournit cette boîte à outils : des UDF VBA de qualité production (gestion d'erreur propre, `Option Explicit`, aucune dépendance cachée), un classeur de reporting généré avec des formules Excel natives vivantes (pas des valeurs figées), et un moteur Python qui produit l'exemple et valide chaque indicateur en double aveugle contre le VBA.
 
 ---
 
@@ -143,7 +141,7 @@ Le classeur reste **vivant** : modifier une position ou une VL recalcule automat
 
 ## Bloomberg : ce qui nécessite un terminal, ce qui ne l'exige pas
 
-`modBloomberg.bas` construit les chaînes de formule `BDP`/`BDH`/`BDS`, détecte la disponibilité du complément Bloomberg (`Application.COMAddIns`), et bascule automatiquement sur un jeu de données local si le terminal n'est pas actif. **Ces fonctions Bloomberg elles-mêmes (BDP/BDH/BDS) sont fournies par le complément Excel officiel "Bloomberg Excel Add-in"**, qui nécessite un terminal Bloomberg actif et une session BBComm ouverte — ce dépôt ne les réimplémente pas (impossible sans le terminal) et ne prétend pas le contraire.
+`modBloomberg.bas` construit les chaînes de formule `BDP`/`BDH`/`BDS`, détecte la disponibilité du complément Bloomberg (`Application.COMAddIns`), et bascule automatiquement sur un jeu de données local si le terminal n'est pas actif. Ces fonctions Bloomberg elles-mêmes (BDP/BDH/BDS) sont fournies par le complément Excel officiel "Bloomberg Excel Add-in", qui nécessite un terminal Bloomberg actif et une session BBComm ouverte ; ce dépôt construit les formules qui les appellent, pas les fonctions elles-mêmes.
 
 Pour développer et tester la logique de reporting **sans terminal**, `src/riskreporting/bloomberg_stub.py` simule localement les mêmes fonctions (`bdp`, `bdh`, `bds`) avec des données déterministes, en documentant les mnémoniques de champs réellement utilisés (`PX_LAST`, `VOLATILITY_90D`, `CRNCY`, `DUR_ADJ_MID`, `CUR_MKT_CAP`, `NAME`, `GICS_SECTOR_NAME`, `RSK_BB_ISSUER_RATING`).
 
@@ -202,13 +200,7 @@ Black-Scholes / Grecques de référence (S=100, K=100, T=1 an, r=5%, q=0%, vol=2
 
 ---
 
-## Limites & hypothèses
-
-- Toutes les données (positions, historique de VL, référentiel Bloomberg) sont **entièrement synthétiques**, générées avec une graine déterministe. Aucune ne constitue une donnée de marché réelle ni un conseil en investissement.
-- La contribution au risque par secteur est une approximation simplifiée (somme des expositions absolues pondérées, hypothèse de corrélation unitaire entre lignes), pas une décomposition Euler rigoureuse de la VaR.
-- `VaRCornishFisher` utilise un développement au 2ᵉ ordre (skewness + kurtosis) : au-delà, l'approximation peut devenir instable pour des queues très épaisses.
-- Le module Bloomberg nécessite un terminal actif pour fonctionner en conditions réelles ; le stub Python et les fallbacks VBA ne sont que des filets de sécurité pour le développement et la démonstration.
-- Aucune automatisation de ce classeur n'envoie d'email automatiquement : `EnvoyerBrouillonOutlook` s'arrête systématiquement à `.Display` (jamais `.Send`), par choix de conception.
+Toutes les données (positions, historique de VL, référentiel Bloomberg) sont synthétiques, générées avec une graine déterministe. La contribution au risque par secteur est une approximation simplifiée (somme des expositions absolues pondérées, hypothèse de corrélation unitaire entre lignes), pas une décomposition Euler de la VaR. `VaRCornishFisher` utilise un développement au 2ᵉ ordre (skewness + kurtosis). `EnvoyerBrouillonOutlook` s'arrête systématiquement à `.Display` (jamais `.Send`), par choix de conception.
 
 ## Bibliographie
 

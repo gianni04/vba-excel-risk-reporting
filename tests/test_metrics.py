@@ -1,12 +1,4 @@
-"""
-test_metrics.py
-================
-
-Coherence des indicateurs de risque Python (riskreporting.metrics) contre des
-valeurs analytiques calculees a la main ou issues de scipy.stats, avec les
-memes jeux de donnees que ceux utilises dans vba/modTests.bas (pour permettre
-une comparaison croisee Python <-> VBA a l'oeil).
-"""
+"""Coherence des indicateurs de risque Python contre des valeurs analytiques, avec les memes jeux de donnees que vba/modTests.bas."""
 
 from __future__ import annotations
 
@@ -15,19 +7,10 @@ import pytest
 
 from riskreporting import metrics
 
-# Serie utilisee dans vba/modTests.TesterRiskMetricsSurFeuille :
-# -0,05, -0,04, ..., 0,04 (pas de 0,01), 10 valeurs, moyenne = -0,005.
 RENDEMENTS_10 = np.array([-0.05 + i * 0.01 for i in range(10)])
 
 
-# ---------------------------------------------------------------------------
-# VaR historique
-# ---------------------------------------------------------------------------
-
-
 def test_var_historique_quantile_lineaire_connu():
-    # rang = (1-0.9)*(10-1) = 0.9 -> index 0 + 0.9*(index1-index0)
-    # quantile = -0.05 + 0.9*0.01 = -0.041 -> VaR = 0.041
     var = metrics.var_historique(RENDEMENTS_10, niveau=0.9)
     assert var == pytest.approx(0.041, abs=1e-9)
 
@@ -43,11 +26,6 @@ def test_var_historique_niveau_invalide_leve():
         metrics.var_historique(RENDEMENTS_10, niveau=0)
 
 
-# ---------------------------------------------------------------------------
-# VaR parametrique / Cornish-Fisher
-# ---------------------------------------------------------------------------
-
-
 def test_var_parametrique_valeur_manuelle():
     from scipy import stats
 
@@ -59,11 +37,9 @@ def test_var_parametrique_valeur_manuelle():
 
 
 def test_var_cornish_fisher_egale_parametrique_si_skew_kurt_nuls():
-    # Serie symetrique autour de 0 avec skewness et kurtosis-exces proches de 0
-    # (approximation d'une gaussienne discretisee) : Cornish-Fisher ~ parametrique.
     rng = np.random.default_rng(42)
     x = rng.standard_normal(20000)
-    x = (x - x.mean()) / x.std(ddof=1)  # standardise exactement
+    x = (x - x.mean()) / x.std(ddof=1)
     var_param = metrics.var_parametrique(x, niveau=0.99)
     var_cf = metrics.var_cornish_fisher(x, niveau=0.99)
     assert var_cf == pytest.approx(var_param, abs=0.05)
@@ -74,29 +50,15 @@ def test_var_cornish_fisher_necessite_au_moins_4_observations():
         metrics.var_cornish_fisher(np.array([0.01, -0.01, 0.02]), niveau=0.99)
 
 
-# ---------------------------------------------------------------------------
-# Expected Shortfall
-# ---------------------------------------------------------------------------
-
-
 def test_expected_shortfall_moyenne_de_la_queue_connue():
-    # 10 observations, niveau 0.8 -> n_queue = ceil(0.2*10) = 2
-    # queue triee = [-0.05, -0.04] -> moyenne = -0.045 -> ES = 0.045
     es = metrics.expected_shortfall(RENDEMENTS_10, niveau=0.8)
     assert es == pytest.approx(0.045, abs=1e-9)
 
 
 def test_expected_shortfall_superieure_ou_egale_a_var_historique():
-    # Propriete theorique : ES(niveau) >= VaR(niveau) (la moyenne de la queue
-    # est au moins aussi mauvaise que son bord).
     var = metrics.var_historique(RENDEMENTS_10, niveau=0.9)
     es = metrics.expected_shortfall(RENDEMENTS_10, niveau=0.9)
     assert es >= var - 1e-12
-
-
-# ---------------------------------------------------------------------------
-# Volatilite
-# ---------------------------------------------------------------------------
 
 
 def test_volatilite_annualisee_serie_constante_est_nulle():
@@ -110,15 +72,8 @@ def test_volatilite_annualisee_formule_manuelle():
 
 
 def test_volatilite_ewma_poids_somment_a_un():
-    # Verification indirecte : sur une serie constante, la vol EWMA doit valoir
-    # exactement |valeur constante| (poids normalises).
     serie = np.full(15, 0.02)
     assert metrics.volatilite_ewma(serie, lam=0.94) == pytest.approx(0.02, abs=1e-9)
-
-
-# ---------------------------------------------------------------------------
-# Tracking error / beta / ratios (cas fonds = benchmark, cf. modTests.bas)
-# ---------------------------------------------------------------------------
 
 
 def test_tracking_error_nulle_si_fonds_replique_benchmark():
@@ -148,16 +103,9 @@ def test_ratio_information_leve_si_te_nulle():
 
 
 def test_ratio_sharpe_leve_si_volatilite_nulle():
-    # 0.25 est exactement representable en binaire : l'ecart-type est
-    # rigoureusement nul (pas de bruit d'arrondi comme avec 0.001).
     serie_constante = np.full(10, 0.25)
     with pytest.raises(ZeroDivisionError):
         metrics.ratio_sharpe(serie_constante)
-
-
-# ---------------------------------------------------------------------------
-# Max Drawdown (meme jeu de donnees que vba/modTests.bas)
-# ---------------------------------------------------------------------------
 
 
 def test_max_drawdown_valeur_connue():
@@ -178,23 +126,12 @@ def test_max_drawdown_serie_aleatoire_est_negatif_ou_nul():
     assert metrics.max_drawdown(vl) <= 0.0
 
 
-# ---------------------------------------------------------------------------
-# Contribution au risque
-# ---------------------------------------------------------------------------
-
-
 def test_contribution_au_risque_somme_a_un():
     expositions = np.array([100, -50, 200, 30])
     volatilites = np.array([0.1, 0.2, 0.15, 0.3])
     contrib = metrics.contribution_au_risque(expositions, volatilites)
     assert contrib.sum() == pytest.approx(1.0, abs=1e-9)
     assert (contrib >= 0).all()
-
-
-# ---------------------------------------------------------------------------
-# Black-Scholes / Grecques : valeurs de reference identiques a
-# vba/modTests.TesterBlackScholes et TesterGrecques (S=100,K=100,T=1,r=5%,q=0,vol=20%)
-# ---------------------------------------------------------------------------
 
 
 def test_black_scholes_call_reference():
@@ -210,7 +147,6 @@ def test_black_scholes_put_reference():
 def test_black_scholes_parite_call_put():
     call = metrics.black_scholes("C", 100, 100, 1, 0.05, 0, 0.2)
     put = metrics.black_scholes("P", 100, 100, 1, 0.05, 0, 0.2)
-    # C - P = S*exp(-qT) - K*exp(-rT)
     assert (call - put) == pytest.approx(100 * np.exp(0) - 100 * np.exp(-0.05 * 1), abs=1e-6)
 
 

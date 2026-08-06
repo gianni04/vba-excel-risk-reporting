@@ -1,41 +1,9 @@
 Attribute VB_Name = "modBloomberg"
-'===============================================================================
-' Module    : modBloomberg
-' Objet     : Wrappers autour des fonctions Bloomberg Excel Add-in (BDP, BDH,
-'             BDS) : construction de formules, rafraichissement controle,
-'             detection des erreurs de donnees, et FALLBACK EXPLICITE sur un
-'             jeu de donnees local lorsque le terminal Bloomberg n'est pas
-'             disponible (poste sans add-in, demo, ou hors connexion Bloomberg).
-'
-' IMPORTANT - PRE-REQUIS BLOOMBERG :
-'   Les fonctions BDP / BDH / BDS elles-memes sont fournies par le complement
-'   Excel "Bloomberg Excel Add-in" (installe avec un terminal Bloomberg actif
-'   et une session BBComm ouverte). Ce module ne reimplemente PAS ces fonctions
-'   (impossible sans le terminal) : il construit les CHAINES DE FORMULE a
-'   inserer dans les cellules, controle leur rafraichissement, et detecte les
-'   erreurs "#N/A Requesting Data" pendant la latence reseau normale de
-'   Bloomberg. Si l'add-in n'est pas present, RafraichirBloomberg bascule
-'   automatiquement sur ChargerDonneesLocales pour que le classeur reste
-'   utilisable en depannage / demonstration / formation.
-'
-' Auteur    : Gianni Pilotti
-'===============================================================================
 
 Option Explicit
 
-' Delai (en secondes) entre deux verifications du rafraichissement Bloomberg.
 Private Const DELAI_VERIF_SECONDES As Double = 0.5
 
-'===============================================================================
-' ConstruireFormuleBDP
-' Construit la chaine de formule BDP (Bloomberg Data Point - donnee statique
-' "point in time") avec overrides optionnels.
-'   ticker  : identifiant Bloomberg, ex "AAPL US Equity", "FR0000131104 Equity"
-'   champ   : mnemonique de champ Bloomberg, ex "PX_LAST", "CRNCY", "DUR_ADJ_MID"
-'   overrides : dictionnaire "CHAMP=VALEUR" separes par ";", ex
-'               "EQY_FUND_YEAR=2025;CURRENCY=EUR" (peut etre vide)
-' Exemple d'utilisation : Range("B2").Formula = ConstruireFormuleBDP("AAPL US Equity", "PX_LAST", "")
-'===============================================================================
 Public Function ConstruireFormuleBDP(ByVal ticker As String, ByVal champ As String, Optional ByVal overrides As String = "") As String
     Dim formule As String
 
@@ -49,17 +17,6 @@ Public Function ConstruireFormuleBDP(ByVal ticker As String, ByVal champ As Stri
     ConstruireFormuleBDP = formule
 End Function
 
-'===============================================================================
-' ConstruireFormuleBDH
-' Construit la chaine de formule BDH (Bloomberg Data History) pour une serie
-' historique entre deux dates.
-'   ticker    : identifiant Bloomberg
-'   champ     : mnemonique de champ, ex "PX_LAST"
-'   dateDebut : date de debut au format "AAAAMMJJ" (ex "20240101")
-'   dateFin   : date de fin au format "AAAAMMJJ" (ex "20241231")
-'   overrides : ex "Days=W;Fill=P" (frequence hebdo, remplissage precedent)
-' Exemple : Range("B2").Formula = ConstruireFormuleBDH("AAPL US Equity","PX_LAST","20240101","20241231","")
-'===============================================================================
 Public Function ConstruireFormuleBDH(ByVal ticker As String, ByVal champ As String, ByVal dateDebut As String, ByVal dateFin As String, Optional ByVal overrides As String = "") As String
     Dim formule As String
 
@@ -73,15 +30,6 @@ Public Function ConstruireFormuleBDH(ByVal ticker As String, ByVal champ As Stri
     ConstruireFormuleBDH = formule
 End Function
 
-'===============================================================================
-' ConstruireFormuleBDS
-' Construit la chaine de formule BDS (Bloomberg Data Set) pour des donnees en
-' liste (ex : composition d'indice, flux obligataires, actionnariat).
-'   ticker : identifiant Bloomberg, ex "SXXP Index"
-'   champ  : mnemonique de champ "bulk", ex "INDX_MWEIGHT"
-'   overrides : optionnel
-' Exemple : Range("B2").Formula = ConstruireFormuleBDS("SXXP Index","INDX_MWEIGHT","")
-'===============================================================================
 Public Function ConstruireFormuleBDS(ByVal ticker As String, ByVal champ As String, Optional ByVal overrides As String = "") As String
     Dim formule As String
 
@@ -95,11 +43,6 @@ Public Function ConstruireFormuleBDS(ByVal ticker As String, ByVal champ As Stri
     ConstruireFormuleBDS = formule
 End Function
 
-'-------------------------------------------------------------------------------
-' ConstruireArgumentsOverride
-' Transforme une chaine "CHAMP1=VAL1;CHAMP2=VAL2" en arguments d'override
-' Bloomberg au format attendu par BDP/BDH/BDS : "CHAMP1","VAL1","CHAMP2","VAL2"
-'-------------------------------------------------------------------------------
 Private Function ConstruireArgumentsOverride(ByVal overrides As String) As String
     Dim paires() As String
     Dim i As Long
@@ -129,13 +72,6 @@ Private Function EchapperGuillemets(ByVal texte As String) As String
     EchapperGuillemets = Replace(texte, """", """""")
 End Function
 
-'===============================================================================
-' BloombergDisponible
-' Detecte si le complement Bloomberg Excel Add-in est charge (donc si les
-' fonctions BDP/BDH/BDS sont utilisables). Se base sur la presence du COM
-' Add-in dans Application.COMAddIns ; methode robuste qui ne plante pas si
-' Bloomberg n'est pas installe du tout.
-'===============================================================================
 Public Function BloombergDisponible() As Boolean
     On Error GoTo PasDisponible
     Dim i As Long
@@ -158,13 +94,6 @@ PasDisponible:
     BloombergDisponible = False
 End Function
 
-'===============================================================================
-' EstErreurBloomberg
-' Detecte si une valeur de cellule correspond a une erreur de donnee Bloomberg
-' typique : "#N/A Requesting Data" (donnee en cours de recuperation), "#N/A
-' Field Not Applicable", "#N/A Invalid Security", etc.
-'   valeurCellule : Variant contenant la valeur lue dans la cellule
-'===============================================================================
 Public Function EstErreurBloomberg(ByVal valeurCellule As Variant) As Boolean
     Dim texte As String
 
@@ -185,15 +114,6 @@ Public Function EstErreurBloomberg(ByVal valeurCellule As Variant) As Boolean
     EstErreurBloomberg = False
 End Function
 
-'===============================================================================
-' AttendreRafraichissementBloomberg
-' Attend que les cellules Bloomberg de la plage donnee ne renvoient plus
-' "#N/A Requesting Data", avec timeout pour ne jamais bloquer indefiniment
-' Excel (cas d'un poste sans connexion Bloomberg active).
-'   plage         : Range contenant des formules BDP/BDH/BDS
-'   timeoutSecondes : duree maximale d'attente (defaut 15 secondes)
-' Renvoie True si toutes les cellules sont resolues avant le timeout.
-'===============================================================================
 Public Function AttendreRafraichissementBloomberg(ByVal plage As Range, Optional ByVal timeoutSecondes As Double = 15) As Boolean
     On Error GoTo GestionErreur
     Dim tempsDebut As Double
@@ -237,19 +157,6 @@ Private Function EnCoursDeChargement(ByVal valeurCellule As Variant) As Boolean
     End If
 End Function
 
-'===============================================================================
-' RafraichirBloomberg
-' Routine de rafraichissement controle : force le recalcul des formules
-' Bloomberg de la feuille active (ou de la plage fournie), attend leur
-' resolution, et bascule AUTOMATIQUEMENT sur le jeu de donnees local
-' (ChargerDonneesLocales) si Bloomberg n'est pas disponible ou si le
-' rafraichissement time-out. Ainsi le classeur reste utilisable pour la
-' production du reporting meme sans terminal Bloomberg (formation, poste de
-' secours, weekend sans session BBComm).
-'   feuilleCible : feuille contenant les formules Bloomberg et la zone de repli
-'   plageBloomberg : plage a rafraichir / verifier
-'   plageRepliLocal : plage de destination du jeu de donnees local de secours
-'===============================================================================
 Public Sub RafraichirBloomberg(ByVal feuilleCible As Worksheet, ByVal plageBloomberg As Range, Optional ByVal plageRepliLocal As Range = Nothing)
     On Error GoTo GestionErreur
     Dim ok As Boolean
@@ -283,23 +190,11 @@ GestionErreur:
     End If
 End Sub
 
-'===============================================================================
-' ChargerDonneesLocales
-' Fallback explicite : alimente la plage cible avec un jeu de donnees de
-' marche local (statique) permettant de continuer a produire le reporting
-' quand le terminal Bloomberg est indisponible. Les valeurs sont clairement
-' identifiees comme des donnees de secours (pas des cours de marche reels) via
-' un commentaire insere en premiere cellule.
-'   plageCible : plage de destination (premiere cellule = coin superieur gauche)
-'===============================================================================
 Public Sub ChargerDonneesLocales(ByVal plageCible As Range)
     On Error GoTo GestionErreur
     Dim donnees As Variant
     Dim i As Long, j As Long
 
-    ' Jeu de donnees de secours : PX_LAST, VOLATILITY_90D, CRNCY par ligne de
-    ' position, dans le meme ordre que le referentiel positions du classeur.
-    ' A adapter/etendre selon le referentiel reel de positions.
     donnees = Array( _
         Array("PX_LAST", "VOLATILITY_90D", "CRNCY"), _
         Array(101.25, 18.4, "EUR"), _
@@ -326,10 +221,6 @@ GestionErreur:
     LogBloomberg "Erreur lors du chargement des donnees locales : " & Err.Description
 End Sub
 
-'-------------------------------------------------------------------------------
-' LogBloomberg : journalisation simple dans la fenetre Immediate (Ctrl+G), pour
-' tracer les bascules Bloomberg <-> donnees locales pendant l'exploitation.
-'-------------------------------------------------------------------------------
 Private Sub LogBloomberg(ByVal message As String)
     Debug.Print Format$(Now, "yyyy-mm-dd hh:mm:ss") & " [modBloomberg] " & message
 End Sub

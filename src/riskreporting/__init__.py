@@ -1,15 +1,4 @@
-"""
-riskreporting
-=============
-
-Generateur Python de reporting risque middle-office (VaR, Expected Shortfall,
-tracking error, beta, drawdown...) produisant un classeur Excel complet et
-directement ouvrable, avec formules natives, mise en forme conditionnelle et
-graphiques.
-
-Ce package sert aussi de reference de validation croisee pour les UDF VBA du
-dossier ``vba/`` du meme depot (voir ``examples/02_python_vs_vba.py``).
-"""
+"""Generateur Python de reporting risque middle-office (VaR, Expected Shortfall, tracking error, beta, drawdown) produisant un classeur Excel complet."""
 
 from riskreporting import bloomberg_stub, data, metrics, validate, workbook
 

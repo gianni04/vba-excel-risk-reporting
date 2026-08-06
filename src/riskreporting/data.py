@@ -1,13 +1,4 @@
-"""
-data.py
-=======
-
-Generation d'un portefeuille synthetique et d'un historique de valeur
-liquidative (VL) / benchmark, utilises comme jeu de donnees d'exemple pour le
-reporting risque. Aucune donnee reelle de marche n'est utilisee : tout est
-genere de facon deterministe (graine fixe) pour la reproductibilite des tests
-et des exemples.
-"""
+"""Generation d'un portefeuille synthetique et d'un historique de VL / benchmark, deterministe (graine fixe) pour la reproductibilite."""
 
 from __future__ import annotations
 
@@ -16,8 +7,6 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-# Graine par defaut : garantit que les exemples, les tests et le classeur
-# commite dans docs/ produisent toujours les memes chiffres.
 GRAINE_DEFAUT = 20260101
 
 SECTEURS = [
@@ -57,22 +46,7 @@ class Portefeuille:
 def generer_positions(
     n_positions: int = 25, graine: int = GRAINE_DEFAUT
 ) -> pd.DataFrame:
-    """
-    Genere un tableau de positions synthetiques (ISIN, secteur, exposition,
-    devise, notation, duration, beta individuel) representatif d'un
-    portefeuille actions/obligations diversifie.
-
-    Parameters
-    ----------
-    n_positions : nombre de lignes de portefeuille a generer.
-    graine : graine du generateur pseudo-aleatoire (reproductibilite).
-
-    Returns
-    -------
-    DataFrame indexe 0..n_positions-1 avec les colonnes :
-        isin, libelle, secteur, devise, notation, exposition_eur,
-        duration, beta_individuel, poids
-    """
+    """Genere un tableau de positions synthetiques (ISIN, secteur, exposition, devise, notation, duration, beta individuel) representatif d'un portefeuille actions/obligations diversifie."""
     rng = np.random.default_rng(graine)
 
     isins = [f"XX{rng.integers(1000000000, 9999999999):010d}"[:12] for _ in range(n_positions)]
@@ -83,10 +57,7 @@ def generer_positions(
         NOTATIONS, size=n_positions, p=[0.05, 0.15, 0.30, 0.30, 0.15, 0.05]
     )
 
-    # Expositions log-normales pour representer une distribution de tailles de
-    # lignes realiste (quelques grosses convictions, beaucoup de lignes moyennes).
     expositions = rng.lognormal(mean=13.5, sigma=0.7, size=n_positions)
-    # Environ 10% des lignes sont des positions courtes / couvertures.
     signes = np.where(rng.random(n_positions) < 0.1, -1.0, 1.0)
     expositions = expositions * signes
 
@@ -122,16 +93,7 @@ def generer_historique_vl(
     derive_annuelle_bench: float = 0.05,
     graine: int = GRAINE_DEFAUT,
 ) -> pd.DataFrame:
-    """
-    Genere un historique quotidien de valeur liquidative (VL) du fonds et de
-    son benchmark, par un processus de rendements gaussiens correles
-    (mouvement brownien geometrique discretise), base 100 au premier jour.
-
-    Returns
-    -------
-    DataFrame indexe par date (jours ouvres), colonnes :
-        vl_fonds, vl_bench, rendement_fonds, rendement_bench
-    """
+    """Genere un historique quotidien de valeur liquidative (VL) du fonds et de son benchmark, par un processus de rendements gaussiens correles (mouvement brownien geometrique discretise), base 100 au premier jour."""
     rng = np.random.default_rng(graine + 1)
 
     dates = pd.bdate_range(end=pd.Timestamp(date_fin), periods=n_jours)
@@ -142,7 +104,6 @@ def generer_historique_vl(
     sigma_f = vol_annuelle_fonds / np.sqrt(freq)
     sigma_b = vol_annuelle_bench / np.sqrt(freq)
 
-    # Bruits correles via decomposition de Cholesky d'une matrice 2x2.
     cov = np.array([[1.0, correlation], [correlation, 1.0]])
     L = np.linalg.cholesky(cov)
     z = rng.standard_normal((n_jours, 2))
@@ -168,12 +129,7 @@ def generer_historique_vl(
 
 
 def generer_referentiel_limites(portefeuille: pd.DataFrame) -> pd.DataFrame:
-    """
-    Genere un referentiel de limites de risque coherent avec le portefeuille
-    fourni (limites larges par rapport a l'utilisation reelle courante, pour
-    que le reporting d'exemple affiche un melange realiste de statuts OK /
-    ALERTE / DEPASSEMENT).
-    """
+    """Genere un referentiel de limites de risque coherent avec le portefeuille fourni (limites larges par rapport a l'utilisation reelle courante, pour que le reporting d'exemple affiche un melange realiste de statuts OK / ALERTE / DEPASSEMENT)."""
     expo_brute = float(portefeuille["exposition_eur"].abs().sum())
 
     lignes = [
@@ -207,9 +163,6 @@ def generer_referentiel_limites(portefeuille: pd.DataFrame) -> pd.DataFrame:
             .sum()
         )
         poids_secteur = expo_secteur / expo_brute if expo_brute else 0.0
-        # Limite fixee legerement au-dessus du poids courant pour la plupart
-        # des secteurs, avec un secteur volontairement proche/en depassement
-        # pour illustrer les feux tricolores.
         limite = max(0.20, poids_secteur * 1.15)
         lignes.append(
             {
@@ -227,10 +180,7 @@ def generer_referentiel_limites(portefeuille: pd.DataFrame) -> pd.DataFrame:
 def jeu_de_donnees_complet(
     n_positions: int = 25, n_jours: int = 260, graine: int = GRAINE_DEFAUT
 ) -> dict:
-    """
-    Point d'entree unique produisant l'ensemble des donnees necessaires a la
-    construction du classeur de reporting (positions, historique VL, limites).
-    """
+    """Point d'entree unique produisant l'ensemble des donnees necessaires a la construction du classeur de reporting (positions, historique VL, limites)."""
     positions = generer_positions(n_positions=n_positions, graine=graine)
     historique = generer_historique_vl(n_jours=n_jours, graine=graine)
     limites = generer_referentiel_limites(positions)

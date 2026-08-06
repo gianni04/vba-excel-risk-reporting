@@ -1,27 +1,7 @@
 Attribute VB_Name = "modDataUtils"
-'===============================================================================
-' Module    : modDataUtils
-' Objet     : Utilitaires de manipulation de donnees communs au reporting
-'             risque : import CSV, tri, recherche, calendrier de jours ouvres
-'             et jours feries, conversion plage<->tableau, nettoyage des
-'             valeurs manquantes.
-' Auteur    : Gianni Pilotti
-'===============================================================================
 
 Option Explicit
 
-'===============================================================================
-' ImporterCSV
-' Import robuste d'un fichier CSV dans une feuille, a partir d'une cellule de
-' destination. Gere le separateur configurable, les guillemets englobants, et
-' les lignes vides (ignorees). Renvoie le nombre de lignes importees, ou -1 en
-' cas d'erreur (fichier introuvable, feuille protegee, etc.).
-'   cheminFichier : chemin complet du fichier CSV
-'   feuilleDestination : Worksheet cible
-'   celluleDepart : Range de la cellule de depart (coin superieur gauche)
-'   separateur    : caractere separateur (par defaut ";")
-'   premiereLigneEntete : True si la 1re ligne est un en-tete (copiee aussi)
-'===============================================================================
 Public Function ImporterCSV(ByVal cheminFichier As String, ByVal feuilleDestination As Worksheet, ByVal celluleDepart As Range, _
     Optional ByVal separateur As String = ";", Optional ByVal premiereLigneEntete As Boolean = True) As Long
 
@@ -69,10 +49,6 @@ GestionErreur:
     ImporterCSV = -1
 End Function
 
-'-------------------------------------------------------------------------------
-' DecouperLigneCSV : decoupe une ligne CSV en tenant compte des guillemets
-' englobants (permet des separateurs a l'interieur d'un champ cite).
-'-------------------------------------------------------------------------------
 Private Function DecouperLigneCSV(ByVal ligne As String, ByVal separateur As String) As String()
     Dim resultat() As String
     Dim nChamps As Long
@@ -107,10 +83,6 @@ Private Function DecouperLigneCSV(ByVal ligne As String, ByVal separateur As Str
     DecouperLigneCSV = resultat
 End Function
 
-'-------------------------------------------------------------------------------
-' ConvertirChampCSV : convertit un champ texte en Double si numerique, en Date
-' si format de date reconnu, sinon laisse en texte.
-'-------------------------------------------------------------------------------
 Private Function ConvertirChampCSV(ByVal champ As String) As Variant
     Dim champNettoye As String
     champNettoye = Trim$(champ)
@@ -129,14 +101,6 @@ Private Function ConvertirChampCSV(ByVal champ As String) As Variant
     End If
 End Function
 
-'===============================================================================
-' QuickSort
-' Tri rapide generique sur un tableau Variant a une dimension, ordre croissant
-' ou decroissant. Fonctionne sur des tableaux numeriques ou texte (comparaison
-' native VBA).
-'   tableau     : tableau Variant a trier (modifie en place)
-'   croissant   : True (defaut) pour un tri croissant
-'===============================================================================
 Public Sub QuickSort(ByRef tableau As Variant, Optional ByVal croissant As Boolean = True)
     If Not IsArray(tableau) Then Exit Sub
     QuickSortRecursif tableau, LBound(tableau), UBound(tableau), croissant
@@ -182,15 +146,6 @@ Private Sub QuickSortRecursif(ByRef arr As Variant, ByVal gauche As Long, ByVal 
     If i < droite Then QuickSortRecursif arr, i, droite, croissant
 End Sub
 
-'===============================================================================
-' TrierMatriceParColonne
-' Trie les LIGNES d'un tableau 2D (Variant) selon les valeurs d'une colonne
-' donnee, par insertion (stable, adapte a des matrices de taille moderee comme
-' un tableau de positions). Base 1 attendue (tel qu'issu de PlageVersTableau).
-'   matrice        : tableau 2D Variant, modifie en place
-'   indiceColonne  : indice de la colonne de tri (base 1)
-'   croissant      : True (defaut) pour un tri croissant
-'===============================================================================
 Public Sub TrierMatriceParColonne(ByRef matrice As Variant, ByVal indiceColonne As Long, Optional ByVal croissant As Boolean = True)
     Dim nLignes As Long, nColonnes As Long
     Dim i As Long, j As Long, k As Long
@@ -223,14 +178,6 @@ Public Sub TrierMatriceParColonne(ByRef matrice As Variant, ByVal indiceColonne 
     Next i
 End Sub
 
-'===============================================================================
-' RechercheDichotomique
-' Recherche dichotomique (binary search) d'une valeur dans un tableau Double
-' TRIE par ordre croissant. Renvoie l'indice (base du tableau) si trouve,
-' sinon -1.
-'   tableau : tableau Double trie par ordre croissant
-'   valeurRecherchee : valeur a rechercher
-'===============================================================================
 Public Function RechercheDichotomique(ByRef tableau() As Double, ByVal valeurRecherchee As Double) As Long
     Dim gauche As Long, droite As Long, milieu As Long
 
@@ -253,18 +200,11 @@ Public Function RechercheDichotomique(ByRef tableau() As Double, ByVal valeurRec
     RechercheDichotomique = -1
 End Function
 
-'===============================================================================
-' EstJourOuvre
-' Determine si une date est un jour ouvre (lundi-vendredi et absent du
-' calendrier de jours feries fourni).
-'   dateTest        : date a tester
-'   plageJoursFeries : Range contenant les dates de jours feries (optionnel)
-'===============================================================================
 Public Function EstJourOuvre(ByVal dateTest As Date, Optional ByVal plageJoursFeries As Range = Nothing) As Boolean
     Dim jourSemaine As Integer
     Dim cell As Range
 
-    jourSemaine = Weekday(dateTest, vbMonday) ' 1 = lundi ... 7 = dimanche
+    jourSemaine = Weekday(dateTest, vbMonday)
 
     If jourSemaine >= 6 Then
         EstJourOuvre = False
@@ -285,11 +225,6 @@ Public Function EstJourOuvre(ByVal dateTest As Date, Optional ByVal plageJoursFe
     EstJourOuvre = True
 End Function
 
-'===============================================================================
-' ProchainJourOuvre
-' Renvoie le prochain jour ouvre a partir d'une date donnee (incluse si elle
-' est deja ouvree et bIncluDate=True).
-'===============================================================================
 Public Function ProchainJourOuvre(ByVal dateDepart As Date, Optional ByVal plageJoursFeries As Range = Nothing, Optional ByVal bIncluDate As Boolean = True) As Date
     Dim dateCourante As Date
     Dim compteurSecurite As Long
@@ -301,17 +236,12 @@ Public Function ProchainJourOuvre(ByVal dateDepart As Date, Optional ByVal plage
     Do While Not EstJourOuvre(dateCourante, plageJoursFeries)
         dateCourante = dateCourante + 1
         compteurSecurite = compteurSecurite + 1
-        If compteurSecurite > 3653 Then Exit Do ' garde-fou : 10 ans max
+        If compteurSecurite > 3653 Then Exit Do
     Loop
 
     ProchainJourOuvre = dateCourante
 End Function
 
-'===============================================================================
-' NombreJoursOuvres
-' Compte le nombre de jours ouvres entre deux dates incluses, en excluant les
-' jours feries fournis.
-'===============================================================================
 Public Function NombreJoursOuvres(ByVal dateDebut As Date, ByVal dateFin As Date, Optional ByVal plageJoursFeries As Range = Nothing) As Long
     Dim dateCourante As Date
     Dim compteur As Long
@@ -329,11 +259,6 @@ Public Function NombreJoursOuvres(ByVal dateDebut As Date, ByVal dateFin As Date
     NombreJoursOuvres = compteur
 End Function
 
-'===============================================================================
-' PlageVersTableau
-' Convertit une Range en tableau Variant 2D (base 1), pour manipulation rapide
-' en memoire (evite les acces cellule-par-cellule couteux en performance).
-'===============================================================================
 Public Function PlageVersTableau(ByVal plage As Range) As Variant
     If plage.Cells.Count = 1 Then
         Dim resultat(1 To 1, 1 To 1) As Variant
@@ -344,11 +269,6 @@ Public Function PlageVersTableau(ByVal plage As Range) As Variant
     End If
 End Function
 
-'===============================================================================
-' TableauVersPlage
-' Ecrit un tableau Variant 2D (base 1) dans une plage a partir de sa cellule
-' superieure gauche.
-'===============================================================================
 Public Sub TableauVersPlage(ByRef tableau As Variant, ByVal celluleDepart As Range)
     Dim nLignes As Long, nColonnes As Long
     Dim plageDestination As Range
@@ -362,15 +282,6 @@ Public Sub TableauVersPlage(ByRef tableau As Variant, ByVal celluleDepart As Ran
     plageDestination.Value = tableau
 End Sub
 
-'===============================================================================
-' NettoyerValeursManquantes
-' Remplace, dans une plage, les cellules vides ou en erreur par une valeur de
-' remplacement (ex : 0, ou la derniere valeur connue si methode = "LOCF").
-'   plage         : Range a nettoyer (modifiee en place)
-'   methode       : "ZERO" (defaut) ou "LOCF" (Last Observation Carried Forward)
-'   valeurDefaut  : valeur utilisee si methode = "ZERO" (defaut 0)
-' Renvoie le nombre de cellules corrigees.
-'===============================================================================
 Public Function NettoyerValeursManquantes(ByVal plage As Range, Optional ByVal methode As String = "ZERO", Optional ByVal valeurDefaut As Double = 0) As Long
     On Error GoTo GestionErreur
     Dim cell As Range

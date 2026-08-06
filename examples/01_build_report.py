@@ -1,16 +1,4 @@
-"""
-01_build_report.py
-===================
-
-Genere le classeur complet de reporting risque (positions, historique VL,
-limites, formules Excel natives, graphiques) et l'ecrit dans
-``examples/output/reporting_risque.xlsx``. Copie ensuite ce classeur vers
-``docs/exemple_reporting_risque.xlsx`` pour qu'il soit commite et
-telechargeable directement depuis GitHub.
-
-Usage :
-    python examples/01_build_report.py
-"""
+"""Genere le classeur complet de reporting risque et l'ecrit dans examples/output/reporting_risque.xlsx."""
 
 from __future__ import annotations
 
@@ -47,7 +35,6 @@ def main() -> None:
     )
     print(f"\nClasseur ecrit : {SORTIE}")
 
-    # --- Controle de sante post-generation ---
     resultat = validate.valider_classeur(str(SORTIE))
     n_formules = validate.compter_formules(str(SORTIE))
     print(f"Validation structurelle : {'OK' if resultat.ok else 'ECHEC'}")
@@ -59,8 +46,6 @@ def main() -> None:
     print(f"Nombre de formules Excel natives ecrites : {n_formules}")
     resultat.lever_si_invalide()
 
-    # --- Resume des indicateurs cles (calcules cote Python, a titre indicatif -
-    # les valeurs "vivantes" du classeur sont dans la feuille Synthese) ---
     rendements_fonds = historique["rendement_fonds"].dropna()
     rendements_bench = historique["rendement_bench"].dropna()
     rendements_fonds_np = rendements_fonds.to_numpy()
@@ -98,7 +83,6 @@ def main() -> None:
     print(f"  Exposition nette                  : {expo_nette:,.0f} EUR")
     print(f"  Secteur le plus expose             : {secteur_max}")
 
-    # --- Copie vers docs/ pour telechargement direct depuis GitHub ---
     COPIE_DOCS.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(SORTIE, COPIE_DOCS)
     print(f"\nClasseur copie vers : {COPIE_DOCS}")

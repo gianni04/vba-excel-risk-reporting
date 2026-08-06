@@ -1,11 +1,4 @@
-"""
-test_bloomberg_stub.py
-=======================
-
-Verifie que le simulateur local Bloomberg (riskreporting.bloomberg_stub)
-renvoie des types et des formes de donnees coherents avec l'usage attendu par
-le classeur (BDP/BDH/BDS), sans jamais appeler de service reseau.
-"""
+"""Verifie que le simulateur local Bloomberg renvoie des types et des formes de donnees coherents, sans jamais appeler de service reseau."""
 
 from __future__ import annotations
 

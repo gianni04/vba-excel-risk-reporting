@@ -1,18 +1,4 @@
-"""
-workbook.py
-===========
-
-Construction du classeur Excel de reporting risque multi-feuilles avec
-xlsxwriter : Synthese, Positions, Historique, Limites, Graphiques,
-Documentation. Les indicateurs de la feuille Synthese sont calcules par des
-FORMULES EXCEL NATIVES ecrites directement dans les cellules (pas des valeurs
-pre-calculees en Python) afin que le classeur reste vivant : modifier une
-position ou une VL recalcule automatiquement tous les indicateurs, exactement
-comme le ferait un vrai reporting middle-office.
-
-Fonctions Excel avancees utilisees : SUMPRODUCT, INDEX/MATCH, XLOOKUP,
-PERCENTILE.INC, STDEV.S, SUMIFS, AVERAGEIF, SLOPE, IFERROR, COUNTIF, COUNTA.
-"""
+"""Construction du classeur Excel de reporting risque multi-feuilles avec xlsxwriter, avec formules Excel natives dans les cellules."""
 
 from __future__ import annotations
 
@@ -22,9 +8,6 @@ import pandas as pd
 import xlsxwriter
 from xlsxwriter.utility import xl_range
 
-# ---------------------------------------------------------------------------
-# Constantes de mise en forme
-# ---------------------------------------------------------------------------
 
 COULEUR_ENTETE = "#1F4E78"
 COULEUR_ENTETE_TEXTE = "#FFFFFF"
@@ -89,13 +72,7 @@ def construire_classeur(
     niveau_confiance_var: float = 0.99,
     taux_sans_risque: float = 0.025,
 ) -> None:
-    """
-    Construit le classeur complet de reporting risque et l'ecrit sur disque a
-    ``chemin_sortie``. Toutes les feuilles sont construites dans une seule
-    passe xlsxwriter (le format ne permet pas la relecture/modification
-    incrementale - voir validate.py pour la verification post-generation avec
-    openpyxl).
-    """
+    """Construit le classeur complet de reporting risque et l'ecrit sur disque a ``chemin_sortie``. Toutes les feuilles sont construites dans une seule passe xlsxwriter (le format ne permet pas la relecture/modification incrementale - voir validate.py pour la verification post-generation avec openpyxl)."""
     wb = xlsxwriter.Workbook(chemin_sortie, {"nan_inf_to_errors": True})
     fmt = _formats(wb)
 
@@ -109,9 +86,6 @@ def construire_classeur(
     n_pos = len(positions)
     n_hist = len(historique)
 
-    # ------------------------------------------------------------------
-    # Feuille Positions (tableau structure)
-    # ------------------------------------------------------------------
     entetes_positions = [
         "ISIN",
         "Libelle",
@@ -124,8 +98,8 @@ def construire_classeur(
         "Poids",
         "Exposition Abs",
     ]
-    ligne_entete_pos = 2  # 0-based -> Excel ligne 3
-    ligne_derniere_pos = ligne_entete_pos + n_pos  # derniere ligne de donnees (0-based)
+    ligne_entete_pos = 2
+    ligne_derniere_pos = ligne_entete_pos + n_pos
 
     ws_positions.merge_range(0, 0, 0, 9, f"Positions du portefeuille - {nom_portefeuille}", fmt["titre"])
     ws_positions.write(1, 0, "Base de calcul de l'ensemble des expositions et concentrations du reporting.", fmt["note"])
@@ -148,8 +122,8 @@ def construire_classeur(
                 float(ligne["exposition_eur"]),
                 float(ligne["duration"]),
                 float(ligne["beta_individuel"]),
-                None,  # Poids : formule, ecrite apres add_table
-                None,  # Exposition Abs : formule, ecrite apres add_table
+                None,
+                None,
             ]
         )
 
@@ -167,7 +141,7 @@ def construire_classeur(
     )
 
     for i in range(n_pos):
-        excel_row = ligne_entete_pos + 1 + i  # 0-based
+        excel_row = ligne_entete_pos + 1 + i
         ws_positions.write_formula(
             excel_row, col_expo_abs, f"=ABS({lettre_expo}{excel_row + 1})", fmt["monnaie"]
         )
@@ -184,9 +158,6 @@ def construire_classeur(
     ws_positions.set_column(5, 9, 15)
     ws_positions.freeze_panes(ligne_entete_pos + 1, 1)
 
-    # ------------------------------------------------------------------
-    # Feuille Historique
-    # ------------------------------------------------------------------
     entetes_hist = [
         "Date",
         "VL Fonds",
@@ -197,8 +168,8 @@ def construire_classeur(
         "Drawdown Fonds",
     ]
     ligne_entete_hist = 2
-    ligne_premiere_donnee_hist = ligne_entete_hist + 1  # 0-based
-    ligne_derniere_hist = ligne_entete_hist + n_hist  # 0-based, derniere ligne de donnees
+    ligne_premiere_donnee_hist = ligne_entete_hist + 1
+    ligne_derniere_hist = ligne_entete_hist + n_hist
 
     ws_historique.merge_range(0, 0, 0, 6, "Historique de valeur liquidative (VL)", fmt["titre"])
     ws_historique.write(1, 0, "Rendements et drawdown calcules par formule a partir des VL (colonnes B et C).", fmt["note"])
@@ -207,7 +178,7 @@ def construire_classeur(
         ws_historique.write(ligne_entete_hist, c, h, fmt["entete"])
 
     for i, (date_idx, ligne) in enumerate(historique.iterrows()):
-        excel_row = ligne_premiere_donnee_hist + i  # 0-based
+        excel_row = ligne_premiere_donnee_hist + i
         ws_historique.write_datetime(excel_row, 0, pd.Timestamp(date_idx).to_pydatetime(), fmt["date"])
         ws_historique.write_number(excel_row, 1, float(ligne["vl_fonds"]), fmt["nombre2"])
         ws_historique.write_number(excel_row, 2, float(ligne["vl_bench"]), fmt["nombre2"])
@@ -237,7 +208,6 @@ def construire_classeur(
     ws_historique.set_column(1, 6, 15)
     ws_historique.freeze_panes(ligne_premiere_donnee_hist, 1)
 
-    # Plages utiles (references Excel, 1-based) pour noms definis et formules
     plage_vl_fonds = f"Historique!$B${ligne_premiere_donnee_hist + 1}:$B${ligne_derniere_hist}"
     plage_vl_bench = f"Historique!$C${ligne_premiere_donnee_hist + 1}:$C${ligne_derniere_hist}"
     plage_rend_fonds = f"Historique!$D${ligne_premiere_donnee_hist + 1}:$D${ligne_derniere_hist}"
@@ -245,9 +215,6 @@ def construire_classeur(
     plage_rend_actif = f"Historique!$F${ligne_premiere_donnee_hist + 1}:$F${ligne_derniere_hist}"
     plage_drawdown = f"Historique!$G${ligne_premiere_donnee_hist + 1}:$G${ligne_derniere_hist}"
 
-    # ------------------------------------------------------------------
-    # Noms definis (defined names)
-    # ------------------------------------------------------------------
     wb.define_name("RendementsFonds", f"={plage_rend_fonds}")
     wb.define_name("RendementsBench", f"={plage_rend_bench}")
     wb.define_name("RendementActif", f"={plage_rend_actif}")
@@ -257,9 +224,6 @@ def construire_classeur(
     wb.define_name("NiveauConfianceVaR", "=Synthese!$D$5")
     wb.define_name("TauxSansRisque", "=Synthese!$D$6")
 
-    # ------------------------------------------------------------------
-    # Feuille Synthese
-    # ------------------------------------------------------------------
     ws_synthese.merge_range(0, 0, 0, 4, f"Reporting Risque Quotidien - {nom_portefeuille}", fmt["titre"])
     ws_synthese.write(1, 0, "Portefeuille :", fmt["libelle"])
     ws_synthese.write(1, 1, nom_portefeuille)
@@ -273,7 +237,7 @@ def construire_classeur(
     ws_synthese.write(5, 0, "Taux sans risque annuel :", fmt["libelle"])
     ws_synthese.write_number(5, 3, taux_sans_risque, fmt["pourcent"])
 
-    ligne_entete_indic = 8  # 0-based -> Excel ligne 9
+    ligne_entete_indic = 8
     ws_synthese.write(ligne_entete_indic, 0, "Code", fmt["entete"])
     ws_synthese.write(ligne_entete_indic, 1, "Indicateur", fmt["entete"])
     ws_synthese.write(ligne_entete_indic, 2, "Valeur", fmt["entete"])
@@ -343,11 +307,8 @@ def construire_classeur(
         ws_synthese.write_formula(r, 2, formule, format_valeur if format_valeur else fmt["bordure"])
         ws_synthese.write(r, 3, formule, fmt["note"])
 
-    ligne_derniere_indic = ligne_entete_indic + len(indicateurs)  # 0-based, derniere ligne ecrite
+    ligne_derniere_indic = ligne_entete_indic + len(indicateurs)
 
-    # Nombre de depassements de limites (rempli apres construction de la
-    # feuille Limites, mais la formule peut etre ecrite des maintenant car
-    # xlsxwriter n'a pas besoin d'ordre d'ecriture particulier entre feuilles).
     r_depassements = ligne_derniere_indic + 2
     ws_synthese.write(r_depassements, 0, "NB_DEPASSEMENTS", fmt["bordure"])
     ws_synthese.write(r_depassements, 1, "Nombre de depassements de limites", fmt["bordure"])
@@ -365,15 +326,11 @@ def construire_classeur(
     ws_synthese.set_column(3, 3, 60)
     ws_synthese.freeze_panes(ligne_entete_indic + 1, 0)
 
-    # Lignes de reference pour Limites!F (Code -> Valeur), utilisees par XLOOKUP
     plage_codes_synthese = f"Synthese!$A${ligne_entete_indic + 2}:$A${ligne_derniere_indic + 1}"
     plage_valeurs_synthese = f"Synthese!$C${ligne_entete_indic + 2}:$C${ligne_derniere_indic + 1}"
 
-    # ------------------------------------------------------------------
-    # Feuille Limites
-    # ------------------------------------------------------------------
     entetes_limites = ["Code", "Type", "Libelle", "Limite", "Seuil alerte", "Valeur constatee", "Utilisation", "Statut"]
-    ligne_entete_lim = 3  # 0-based -> Excel ligne 4
+    ligne_entete_lim = 3
     n_lim = len(limites)
 
     ws_limites.merge_range(0, 0, 0, 7, "Referentiel et controle des limites de risque", fmt["titre"])
@@ -389,8 +346,8 @@ def construire_classeur(
         ws_limites.write(ligne_entete_lim, c, h, fmt["entete"])
 
     for i, (_, ligne) in enumerate(limites.iterrows()):
-        excel_row = ligne_entete_lim + 1 + i  # 0-based
-        r1 = excel_row + 1  # 1-based pour les formules
+        excel_row = ligne_entete_lim + 1 + i
+        r1 = excel_row + 1
         ws_limites.write(excel_row, 0, ligne["code"])
         ws_limites.write(excel_row, 1, ligne["type"])
         ws_limites.write(excel_row, 2, ligne["libelle"])
@@ -411,11 +368,10 @@ def construire_classeur(
             excel_row, 7, f'=IF(G{r1}>=1,"DEPASSEMENT",IF(G{r1}>=E{r1},"ALERTE","OK"))'
         )
 
-    ligne_derniere_lim = ligne_entete_lim + n_lim  # 0-based
+    ligne_derniere_lim = ligne_entete_lim + n_lim
 
-    # Mise en forme conditionnelle "feux tricolores" par formule (seuil par ligne)
     plage_statut = xl_range(ligne_entete_lim + 1, 7, ligne_derniere_lim, 7)
-    premiere_ligne_formule = ligne_entete_lim + 2  # 1-based de la premiere ligne de donnees
+    premiere_ligne_formule = ligne_entete_lim + 2
     ws_limites.conditional_format(
         plage_statut,
         {
@@ -446,14 +402,10 @@ def construire_classeur(
     ws_limites.set_column(2, 2, 34)
     ws_limites.set_column(3, 7, 14)
     ws_limites.freeze_panes(ligne_entete_lim + 1, 1)
-    ws_limites.protect()  # feuille protegee : seules les formules restent modifiables via l'onglet Revision
+    ws_limites.protect()
 
-    # ------------------------------------------------------------------
-    # Feuille Graphiques
-    # ------------------------------------------------------------------
     ws_graphiques.merge_range(0, 0, 0, 5, "Graphiques de reporting", fmt["titre"])
 
-    # Tableau d'aide : exposition brute par secteur (pour le graphique en barres)
     secteurs_uniques = sorted(positions["secteur"].unique())
     ligne_entete_secteurs = 2
     ws_graphiques.write(ligne_entete_secteurs, 0, "Secteur", fmt["entete"])
@@ -506,9 +458,6 @@ def construire_classeur(
 
     ws_graphiques.set_column(0, 1, 22)
 
-    # ------------------------------------------------------------------
-    # Feuille Documentation
-    # ------------------------------------------------------------------
     ws_doc.merge_range(0, 0, 0, 3, "Documentation du reporting", fmt["titre"])
     ws_doc.set_column(0, 0, 28)
     ws_doc.set_column(1, 1, 70)
